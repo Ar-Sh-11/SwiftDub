@@ -1,0 +1,36 @@
+# SwiftDub
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+swiftdub/ 
+.env
+
+# Data & outputs
+data/uploads/
+data/outputs/
+data/temp/
+
+# Model weights (large files — download via scripts/download_models.py)
+models/weights/
+models/repos/
+
+# Keep directory structure
+!models/weights/.gitkeep
+!models/repos/.gitkeep
+!data/samples/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
