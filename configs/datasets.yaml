@@ -1,0 +1,119 @@
+# SwiftDub — Dataset Registry
+# Shapes listed as [T, C, H, W] for video, [T] for audio frames
+
+benchmark_samples:
+  # Small public clips for quick inference/eval — no signup needed
+  latentsync_demo:
+    video_url: "https://github.com/bytedance/LatentSync/raw/main/assets/demo1_video.mp4"
+    audio_url: "https://github.com/bytedance/LatentSync/raw/main/assets/demo1_audio.wav"
+    description: "Talking-head, single speaker, frontal, ~10s"
+
+  latentsync_demo2:
+    video_url: "https://github.com/bytedance/LatentSync/raw/main/assets/demo2_video.mp4"
+    audio_url: "https://github.com/bytedance/LatentSync/raw/main/assets/demo2_audio.wav"
+    description: "Talking-head, female speaker, frontal, ~15s"
+
+  latentsync_demo3:
+    video_url: "https://github.com/bytedance/LatentSync/raw/main/assets/demo3_video.mp4"
+    audio_url: "https://github.com/bytedance/LatentSync/raw/main/assets/demo3_audio.wav"
+    description: "Talking-head, side angle, ~20s"
+
+training_datasets:
+  lrs3:
+    display_name: "LRS3 (TED Talks)"
+    size_gb: 60
+    hours: 438
+    resolution: "224x224 (cropped face)"
+    fps: 25
+    sample_rate: 16000
+    language: English
+    license: "Research only — requires agreement with Oxford VGG"
+    signup_url: "https://mmai.io/datasets/lip_reading/"
+    format: "mp4 per utterance + txt transcript"
+    frame_shape: [T, 3, 224, 224]
+    audio_shape: [T_audio]    # 16 kHz mono
+    notes: "Best dataset for LRS3 fine-tuning. Used in LatentSync/Wav2Lip evals."
+
+  voxceleb2:
+    display_name: "VoxCeleb2"
+    size_gb: 145
+    hours: 2442
+    resolution: "variable, face-cropped ~224x224"
+    fps: 25
+    sample_rate: 16000
+    language: English + multilingual
+    license: "Research only — VGGFace2 face tracks"
+    signup_url: "https://www.robots.ox.ac.uk/~vgg/data/voxceleb/"
+    format: "mp4 clips of ~3-10s each"
+    frame_shape: [T, 3, 224, 224]
+    audio_shape: [T_audio]
+    notes: "Large diversity, ideal for generalization. Used in LatentSync paper."
+
+  hdtf:
+    display_name: "HDTF (High-Definition Talking Face)"
+    size_gb: 15
+    hours: 16
+    resolution: "720p/1080p full frame"
+    fps: 25
+    sample_rate: 16000
+    language: English
+    license: "CC-BY 4.0"
+    download_script: "scripts/download/hdtf.py"
+    format: "mp4, scraped from YouTube (yt-dlp)"
+    frame_shape: [T, 3, 720, 1280]
+    audio_shape: [T_audio]
+    notes: "High-quality, frontal speakers. Used in DINet and VideoReTalking. Best for visual quality eval."
+
+  celebv_hq:
+    display_name: "CelebV-HQ"
+    size_gb: 65
+    hours: 65
+    resolution: "512x512 face-cropped"
+    fps: 25
+    sample_rate: 16000
+    language: English (celebrities)
+    license: "Non-commercial research"
+    hf_dataset: "AIDB-Lab/CelebV-HQ"
+    format: "mp4 clips, celebrity talking heads"
+    frame_shape: [T, 3, 512, 512]
+    audio_shape: [T_audio]
+    notes: "High visual quality, good expression diversity."
+
+  avspeech:
+    display_name: "AVSpeech (Google)"
+    size_gb: 600
+    hours: 4700
+    resolution: "variable, face-cropped"
+    fps: 25
+    sample_rate: 16000
+    language: English (with other languages)
+    license: "Research only"
+    csv_url: "https://looking-to-listen.github.io/avspeech/download.html"
+    format: "YouTube IDs + timestamps + face bboxes"
+    notes: "Very large scale. Use a subset for practical training."
+
+evaluation_metrics:
+  lse_d:
+    description: "Lip Sync Error Distance (lower is better)"
+    range: [0, inf]
+    target: "<7.0 for good sync"
+  lse_c:
+    description: "Lip Sync Error Confidence (higher is better)"
+    range: [-inf, inf]
+    target: ">6.0"
+  ssim:
+    description: "Structural Similarity (higher is better)"
+    range: [0, 1]
+    target: ">0.85"
+  psnr:
+    description: "Peak Signal-to-Noise Ratio in dB (higher is better)"
+    range: [0, 50]
+    target: ">30 dB"
+  lpips:
+    description: "Perceptual similarity (lower is better)"
+    range: [0, 1]
+    target: "<0.1"
+  arcface_sim:
+    description: "Identity preservation (higher is better)"
+    range: [0, 1]
+    target: ">0.85"

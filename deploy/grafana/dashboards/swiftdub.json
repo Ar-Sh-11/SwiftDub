@@ -1,0 +1,43 @@
+{
+  "title": "SwiftDub",
+  "uid": "swiftdub-main",
+  "schemaVersion": 36,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Total Requests",
+      "gridPos": {"x": 0, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "sum(swiftdub_inference_requests_total)", "legendFormat": "Total"}]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Success Rate",
+      "gridPos": {"x": 4, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "sum(rate(swiftdub_inference_requests_total{status='success'}[5m])) / sum(rate(swiftdub_inference_requests_total[5m]))", "legendFormat": "%"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Active Jobs",
+      "gridPos": {"x": 8, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "swiftdub_active_jobs", "legendFormat": "Active"}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Cache Hit Rate",
+      "gridPos": {"x": 12, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "sum(rate(swiftdub_cache_hits_total[5m]))", "legendFormat": "Hits/s"}]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Inference Latency p50/p95 (s)",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum by (le, model) (rate(swiftdub_inference_duration_seconds_bucket[5m])))", "legendFormat": "p50 {{model}}"},
+        {"expr": "histogram_quantile(0.95, sum by (le, model) (rate(swiftdub_inference_duration_seconds_bucket[5m])))", "legendFormat": "p95 {{model}}"}
+      ]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Requests per model",
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum by (model) (rate(swiftdub_inference_requests_total[5m]))", "legendFormat": "{{model}}"}
+      ]
+    }
+  ]
+}
