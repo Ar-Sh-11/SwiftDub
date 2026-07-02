@@ -76,7 +76,7 @@ python scripts/download/models.py --latentsync-version 1.5
 
 Downloads:
 - `models/repos/latentsync/` — ByteDance/LatentSync repo
-- `models/weights/latentsync/latentsync_unet.pt` — 1.5 GB U-Net checkpoint
+- `models/weights/latentsync/latentsync_unet.pt` — 5.1 GB U-Net checkpoint
 - `models/repos/latentsync/checkpoints/whisper/tiny.pt` — Whisper encoder
 
 Verify:

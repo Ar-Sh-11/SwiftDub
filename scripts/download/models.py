@@ -58,7 +58,7 @@ def install_latentsync(version: str = "1.5") -> None:
     whisper_name = "tiny.pt" if version == "1.5" else "small.pt"
 
     if not ckpt.exists():
-        info(f"Downloading LatentSync {version} checkpoint (~1.5 GB)")
+        info(f"Downloading LatentSync {version} checkpoint (~5.1 GB)")
         hf_download(hf_repo, "latentsync_unet.pt", ckpt.parent)
 
     if not whisper.exists():
