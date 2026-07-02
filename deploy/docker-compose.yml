@@ -1,10 +1,14 @@
 version: "3.9"
 
-# SwiftDub full production stack
-# Usage: docker compose -f deploy/docker-compose.yml up -d
+# SwiftDub — Production Stack (LatentSync 1.5)
+# GPU required: NVIDIA L40S (46 GB) or equivalent ≥ 16 GB VRAM
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.yml up -d
+#   docker compose -f deploy/docker-compose.yml logs -f api
 
 services:
-  # ── Core Services ─────────────────────────────────────────────────────────
+
   mongodb:
     image: mongo:7.0
     container_name: swiftdub-mongo
@@ -36,7 +40,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── API Server ────────────────────────────────────────────────────────────
   api:
     build:
       context: ..
@@ -45,6 +48,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - ../.env
     environment:
       MONGODB_URL: mongodb://mongodb:27017
       REDIS_URL: redis://redis:6379/0
@@ -53,6 +58,7 @@ services:
     volumes:
       - ../data:/app/data
       - ../models:/app/models
+      - ../logs:/app/logs
     depends_on:
       mongodb:
         condition: service_healthy
@@ -66,14 +72,19 @@ services:
               count: 1
               capabilities: [gpu]
 
-  # ── Celery Worker ─────────────────────────────────────────────────────────
   worker:
     build:
       context: ..
       dockerfile: Dockerfile
     container_name: swiftdub-worker
     restart: unless-stopped
-    command: celery -A src.workers.tasks.celery_app worker --loglevel=info --concurrency=1
+    command: >
+      celery -A src.workers.tasks.celery_app worker
+      --loglevel=info
+      --concurrency=1
+      --queues=celery
+    env_file:
+      - ../.env
     environment:
       MONGODB_URL: mongodb://mongodb:27017
       REDIS_URL: redis://redis:6379/0
@@ -82,6 +93,7 @@ services:
     volumes:
       - ../data:/app/data
       - ../models:/app/models
+      - ../logs:/app/logs
     depends_on:
       - redis
       - mongodb
@@ -93,7 +105,6 @@ services:
               count: 1
               capabilities: [gpu]
 
-  # ── Celery Flower Monitor ─────────────────────────────────────────────────
   flower:
     image: mher/flower:2.0
     container_name: swiftdub-flower
@@ -105,7 +116,6 @@ services:
     depends_on:
       - redis
 
-  # ── Observability Stack ───────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.49.0
     container_name: swiftdub-prometheus

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SwiftDub — Video Dubbing</title>
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --card: #22263a;
+      --accent: #6366f1; --accent2: #8b5cf6; --green: #22c55e;
+      --red: #ef4444; --yellow: #f59e0b; --text: #e2e8f0;
+      --muted: #94a3b8; --border: #2d3253;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    header {
+      background: linear-gradient(135deg, var(--surface) 0%, #1e1b4b 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; background: linear-gradient(90deg, #818cf8, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    header .badge { background: var(--accent); color: #fff; font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+    @media(max-width:768px){ main{grid-template-columns:1fr; padding:1rem;} }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .card h2 { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
+    .card h2 svg { color: var(--accent); }
+
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; font-weight: 500; }
+    .field { margin-bottom: 1rem; }
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: 8px; padding: 1.5rem 1rem;
+      text-align: center; cursor: pointer; transition: all 0.2s;
+      color: var(--muted); font-size: 0.85rem;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.05); }
+    .drop-zone input[type=file] { display: none; }
+    .drop-zone .filename { color: var(--green); margin-top: 0.4rem; font-size: 0.8rem; font-weight: 500; }
+
+    .row { display: flex; gap: 0.75rem; }
+    .row .field { flex: 1; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .range-val { text-align: right; font-size: 0.75rem; color: var(--accent); font-weight: 600; }
+    input[type=number], select { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.45rem 0.65rem; font-size: 0.85rem; outline: none; }
+    input[type=number]:focus, select:focus { border-color: var(--accent); }
+
+    .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+    .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+    button.primary {
+      width: 100%; padding: 0.75rem; border-radius: 8px; border: none; cursor: pointer;
+      font-size: 0.95rem; font-weight: 600; transition: all 0.2s;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; margin-top: 0.5rem;
+    }
+    button.primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    button.primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .progress-bar-wrap { background: var(--surface); border-radius: 999px; height: 6px; margin: 0.75rem 0; overflow: hidden; display: none; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; width: 0%; transition: width 0.3s; }
+
+    #status-msg { font-size: 0.82rem; color: var(--muted); margin-top: 0.4rem; min-height: 1.2rem; }
+
+    .result-panel { display: none; }
+    .result-panel video { width: 100%; border-radius: 8px; background: #000; margin-bottom: 1rem; }
+    .result-panel .download-btn {
+      display: block; text-align: center; padding: 0.6rem; background: var(--green);
+      color: #fff; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 0.85rem;
+    }
+    .result-panel .meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; }
+
+    /* Jobs table */
+    .jobs-panel { grid-column: 1/-1; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { color: var(--muted); font-weight: 600; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(45,50,83,0.5); }
+    tr:last-child td { border-bottom: none; }
+    .status-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+    }
+    .status-badge.completed { background: rgba(34,197,94,0.15); color: var(--green); }
+    .status-badge.processing { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .status-badge.queued { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .status-badge.failed { background: rgba(239,68,68,0.15); color: var(--red); }
+    .dl-link { color: var(--accent); text-decoration: none; font-weight: 500; }
+    .dl-link:hover { text-decoration: underline; }
+
+    .health-bar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .pill { display: flex; align-items: center; gap: 0.3rem; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot.ok { background: var(--green); }
+    .dot.err { background: var(--red); }
+    .dot.warn { background: var(--yellow); }
+
+    #batch-files-list { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="status-dot" id="hd-dot"></div>
+  <h1>SwiftDub</h1>
+  <span class="badge">LatentSync 1.5</span>
+  <div style="margin-left:auto;" id="health-pills" class="health-bar"></div>
+</header>
+
+<main>
+  <!-- ── Single dub ── -->
+  <div class="card">
+    <h2>
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 10l4.55-2.28A1 1 0 0121 8.67v6.66a1 1 0 01-1.45.9L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      Single Video Dub
+    </h2>
+
+    <div class="field">
+      <label>Video file</label>
+      <div class="drop-zone" id="dz-video" onclick="document.getElementById('inp-video').click()">
+        <div>🎬 Drop or click to upload video</div>
+        <div class="filename" id="fn-video"></div>
+        <input type="file" id="inp-video" accept="video/*"/>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Audio file <span style="color:var(--muted)">(optional — extracted from video if absent)</span></label>
+      <div class="drop-zone" id="dz-audio" onclick="document.getElementById('inp-audio').click()">
+        <div>🎵 Drop or click to upload audio</div>
+        <div class="filename" id="fn-audio"></div>
+        <input type="file" id="inp-audio" accept="audio/*"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Inference steps <span class="range-val" id="steps-val">20</span></label>
+        <input type="range" id="inp-steps" min="5" max="50" value="20" oninput="document.getElementById('steps-val').textContent=this.value"/>
+      </div>
+      <div class="field">
+        <label>Guidance scale <span class="range-val" id="scale-val">1.5</span></label>
+        <input type="range" id="inp-scale" min="0.5" max="5.0" step="0.1" value="1.5" oninput="document.getElementById('scale-val').textContent=(+this.value).toFixed(1)"/>
+      </div>
+    </div>
+
+    <div class="row" style="align-items:center">
+      <div class="field" style="flex:0 0 auto">
+        <label>Seed</label>
+        <input type="number" id="inp-seed" value="1247" style="width:100px"/>
+      </div>
+      <div class="toggle" style="margin-top:1.2rem">
+        <input type="checkbox" id="inp-sync" checked/> <span>Wait for result</span>
+      </div>
+      <div class="toggle" style="margin-top:1.2rem">
+        <input type="checkbox" id="inp-deepcache"/> <span>DeepCache</span>
+      </div>
+    </div>
+
+    <button class="primary" id="btn-dub" onclick="submitDub()">🚀 Dub Video</button>
+    <div class="progress-bar-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+    <div id="status-msg">Upload a video to get started.</div>
+
+    <div class="result-panel" id="result-panel" style="margin-top:1rem">
+      <video id="result-video" controls></video>
+      <a id="result-dl" class="download-btn" href="#" download>⬇️ Download dubbed video</a>
+      <div class="meta" id="result-meta"></div>
+    </div>
+  </div>
+
+  <!-- ── Batch dub ── -->
+  <div class="card">
+    <h2>
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+      Batch Dub (up to 10 videos)
+    </h2>
+
+    <div class="field">
+      <label>Video files</label>
+      <div class="drop-zone" id="dz-batch" onclick="document.getElementById('inp-batch').click()">
+        <div>🎬 Drop or click to upload multiple videos</div>
+        <div id="batch-files-list"></div>
+        <input type="file" id="inp-batch" accept="video/*" multiple/>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Shared audio (optional)</label>
+      <div class="drop-zone" id="dz-baudio" onclick="document.getElementById('inp-baudio').click()">
+        <div>🎵 Drop or click to upload shared audio</div>
+        <div class="filename" id="fn-baudio"></div>
+        <input type="file" id="inp-baudio" accept="audio/*"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Steps <span class="range-val" id="bsteps-val">20</span></label>
+        <input type="range" id="inp-bsteps" min="5" max="50" value="20" oninput="document.getElementById('bsteps-val').textContent=this.value"/>
+      </div>
+      <div class="field">
+        <label>Scale <span class="range-val" id="bscale-val">1.5</span></label>
+        <input type="range" id="inp-bscale" min="0.5" max="5.0" step="0.1" value="1.5" oninput="document.getElementById('bscale-val').textContent=(+this.value).toFixed(1)"/>
+      </div>
+    </div>
+
+    <button class="primary" id="btn-batch" onclick="submitBatch()">🚀 Dub All Videos</button>
+    <div id="batch-status" style="font-size:0.82rem;color:var(--muted);margin-top:0.6rem"></div>
+  </div>
+
+  <!-- ── Jobs ── -->
+  <div class="card jobs-panel">
+    <h2 style="justify-content:space-between">
+      <span>📋 Recent Jobs</span>
+      <button onclick="loadJobs()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">Refresh</button>
+    </h2>
+    <div id="jobs-table">Loading…</div>
+  </div>
+</main>
+
+<script>
+const API = '';
+
+// ── File drop zones ──────────────────────────────────────────────────────────
+function setupDrop(dzId, inputId, fnId) {
+  const dz = document.getElementById(dzId);
+  const inp = document.getElementById(inputId);
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    if (e.dataTransfer.files.length) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change')); }
+  });
+  if (fnId) inp.addEventListener('change', () => {
+    document.getElementById(fnId).textContent = inp.files[0]?.name || '';
+  });
+}
+setupDrop('dz-video', 'inp-video', 'fn-video');
+setupDrop('dz-audio', 'inp-audio', 'fn-audio');
+setupDrop('dz-batch', 'inp-batch', null);
+setupDrop('dz-baudio', 'inp-baudio', 'fn-baudio');
+
+document.getElementById('inp-batch').addEventListener('change', function() {
+  const names = Array.from(this.files).map(f => f.name).join(', ');
+  document.getElementById('batch-files-list').textContent = names || '';
+});
+
+// ── Health check ─────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    const pills = document.getElementById('health-pills');
+    pills.innerHTML = [
+      { label: 'CUDA', ok: d.cuda_available },
+      { label: 'ffmpeg', ok: d.ffmpeg_available },
+      { label: 'LatentSync', ok: d.model_ready },
+      { label: `${d.active_jobs}/${d.max_concurrent_jobs} jobs`, ok: true, warn: d.active_jobs >= d.max_concurrent_jobs },
+    ].map(p => `<div class="pill"><div class="dot ${p.warn?'warn':p.ok?'ok':'err'}"></div>${p.label}</div>`).join('');
+    document.getElementById('hd-dot').style.background = d.model_ready ? 'var(--green)' : 'var(--red)';
+  } catch {}
+}
+checkHealth();
+setInterval(checkHealth, 15000);
+
+// ── Status helpers ────────────────────────────────────────────────────────────
+function setStatus(msg, color) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.style.color = color || 'var(--muted)';
+}
+function animateProgress() {
+  const wrap = document.getElementById('progress-wrap');
+  const bar = document.getElementById('progress-bar');
+  wrap.style.display = 'block';
+  bar.style.width = '0%';
+  let v = 0;
+  const iv = setInterval(() => {
+    v = Math.min(v + (100 - v) * 0.04, 95);
+    bar.style.width = v + '%';
+  }, 500);
+  return () => { clearInterval(iv); bar.style.width = '100%'; setTimeout(() => wrap.style.display='none', 600); }
+}
+
+// ── Single dub ───────────────────────────────────────────────────────────────
+async function submitDub() {
+  const video = document.getElementById('inp-video').files[0];
+  if (!video) return setStatus('Please upload a video file.', 'var(--yellow)');
+
+  const btn = document.getElementById('btn-dub');
+  btn.disabled = true;
+  document.getElementById('result-panel').style.display = 'none';
+  setStatus('Uploading…', 'var(--accent)');
+  const stopAnim = animateProgress();
+
+  const fd = new FormData();
+  fd.append('video', video);
+  const audio = document.getElementById('inp-audio').files[0];
+  if (audio) fd.append('audio', audio);
+  fd.append('inference_steps', document.getElementById('inp-steps').value);
+  fd.append('guidance_scale', document.getElementById('inp-scale').value);
+  fd.append('seed', document.getElementById('inp-seed').value);
+  fd.append('sync', document.getElementById('inp-sync').checked ? 'true' : 'false');
+
+  setStatus('Running LatentSync inference… (this takes 30–120s)', 'var(--accent)');
+
+  try {
+    const res = await fetch(`${API}/dub`, { method: 'POST', body: fd });
+    const data = await res.json();
+    stopAnim();
+
+    if (!res.ok) return setStatus('Error: ' + (data.detail || JSON.stringify(data)), 'var(--red)');
+
+    if (data.status === 'queued') {
+      setStatus(`Queued — job ${data.job_id}. Polling…`, 'var(--yellow)');
+      await pollJob(data.job_id);
+    } else {
+      showResult(data);
+    }
+  } catch(e) {
+    stopAnim();
+    setStatus('Request failed: ' + e.message, 'var(--red)');
+  } finally {
+    btn.disabled = false;
+    loadJobs();
+  }
+}
+
+async function pollJob(jobId) {
+  for (let i = 0; i < 120; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const r = await fetch(`${API}/jobs/${jobId}`);
+    const d = await r.json();
+    setStatus(`Job ${jobId} — ${d.status}`, 'var(--accent)');
+    if (d.status === 'completed') { showResult(d); loadJobs(); return; }
+    if (d.status === 'failed') { setStatus('Failed: ' + d.error, 'var(--red)'); loadJobs(); return; }
+  }
+  setStatus('Timed out polling.', 'var(--red)');
+}
+
+function showResult(data) {
+  const panel = document.getElementById('result-panel');
+  const video = document.getElementById('result-video');
+  const dl    = document.getElementById('result-dl');
+  const meta  = document.getElementById('result-meta');
+
+  const url = data.download_url || (data.output_video ? `${API}/jobs/${data.job_id}/download` : null);
+  if (!url) return setStatus('Job complete but no output URL.', 'var(--yellow)');
+
+  video.src = url;
+  dl.href = url;
+  dl.download = `dubbed_${data.job_id}.mp4`;
+  meta.textContent = `Job: ${data.job_id}`;
+  panel.style.display = 'block';
+  setStatus('Done! ✓', 'var(--green)');
+}
+
+// ── Batch dub ────────────────────────────────────────────────────────────────
+async function submitBatch() {
+  const files = document.getElementById('inp-batch').files;
+  if (!files.length) return;
+
+  const btn = document.getElementById('btn-batch');
+  btn.disabled = true;
+
+  const fd = new FormData();
+  for (const f of files) fd.append('videos', f);
+  const audio = document.getElementById('inp-baudio').files[0];
+  if (audio) fd.append('audio', audio);
+  fd.append('inference_steps', document.getElementById('inp-bsteps').value);
+  fd.append('guidance_scale', document.getElementById('inp-bscale').value);
+  fd.append('sync', 'false');
+
+  document.getElementById('batch-status').textContent = 'Submitting batch…';
+
+  try {
+    const res = await fetch(`${API}/dub/batch`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('batch-status').textContent = 'Error: ' + (data.detail || '');
+    } else {
+      document.getElementById('batch-status').textContent =
+        `Batch ${data.batch_id} — ${data.total} jobs queued. Check the jobs table below.`;
+      loadJobs();
+    }
+  } catch(e) {
+    document.getElementById('batch-status').textContent = 'Request failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Jobs table ───────────────────────────────────────────────────────────────
+async function loadJobs() {
+  const el = document.getElementById('jobs-table');
+  try {
+    const r = await fetch(`${API}/jobs?limit=20`);
+    const jobs = await r.json();
+    if (!jobs.length) { el.textContent = 'No jobs yet.'; return; }
+    el.innerHTML = `<table>
+      <thead><tr><th>Job ID</th><th>Status</th><th>Updated</th><th>Output</th></tr></thead>
+      <tbody>${jobs.map(j => `<tr>
+        <td style="font-family:monospace;font-size:0.75rem;color:var(--muted)">${j.job_id.slice(0,8)}…</td>
+        <td><span class="status-badge ${j.status}">${j.status}</span></td>
+        <td style="color:var(--muted)">${j.updated_at ? new Date(j.updated_at).toLocaleTimeString() : '—'}</td>
+        <td>${j.download_url ? `<a class="dl-link" href="${j.download_url}" target="_blank">Download</a>` : j.error ? `<span style="color:var(--red);font-size:0.75rem" title="${j.error}">failed</span>` : '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch { el.textContent = 'Could not load jobs.'; }
+}
+loadJobs();
+setInterval(loadJobs, 10000);
+</script>
+</body>
+</html>

@@ -1,136 +1,63 @@
-#################################################
-# Web Framework
-#################################################
+# SwiftDub — Production Requirements
+# Tested on Python 3.12 + CUDA 12.8 / PyTorch 2.8
 
-fastapi
-uvicorn[standard]
-python-multipart
-pydantic
-pydantic-settings
+# ── Web API ──────────────────────────────────────────────────────────────────
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pydantic>=2.0
+pydantic-settings>=2.2
+aiofiles>=23.0
 
-#################################################
-# Deep Learning
-#################################################
+# ── Deep learning (GPU) — install torch separately with CUDA index ───────────
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+diffusers>=0.26
+transformers>=4.38
+accelerate>=0.27
+safetensors>=0.4
+einops>=0.7
+omegaconf>=2.3
+DeepCache>=0.1
 
-transformers
-diffusers
-accelerate
-safetensors
-timm
-einops
+# ── Video / Audio ─────────────────────────────────────────────────────────────
+opencv-python>=4.9
+imageio>=2.31
+imageio-ffmpeg>=0.4         # bundled ffmpeg binary
+decord>=0.6.0               # fast video reading for LatentSync
+soundfile>=0.12
+librosa>=0.10.1
+ffmpeg-python>=0.2.0
+scipy>=1.11
 
-#################################################
-# Computer Vision
-#################################################
+# ── LatentSync model specific ─────────────────────────────────────────────────
+kornia>=0.7.0
+mediapipe>=0.10.0
+python_speech_features>=0.6
+scenedetect>=0.6.1
+insightface>=0.7
+onnxruntime-gpu>=1.16        # GPU onnx; use onnxruntime on CPU-only
 
-opencv-python
-opencv-contrib-python
-Pillow
-imageio
-imageio-ffmpeg
-scikit-image
-insightface
-onnxruntime
-onnx
+# ── Numerical ─────────────────────────────────────────────────────────────────
+numpy>=1.24,<2.0
+pillow>=10.0
+scikit-image>=0.21
 
-#################################################
-# Audio
-#################################################
+# ── Async job processing ──────────────────────────────────────────────────────
+celery[redis]>=5.3
+flower>=2.0
 
-librosa==0.9.2
-soundfile
-audioread
-pydub
-ffmpeg-python
+# ── Database (MongoDB) ────────────────────────────────────────────────────────
+motor>=3.3              # async MongoDB driver (graceful fallback to in-memory)
 
-#################################################
-# Numerical Computing
-#################################################
+# ── Metrics & logging ─────────────────────────────────────────────────────────
+prometheus-client>=0.20
+loguru>=0.7
 
-numpy
-scipy
-pandas
-
-#################################################
-# Face Processing
-#################################################
-
-facexlib
-gfpgan
-
-#################################################
-# Utilities
-#################################################
-
-tqdm
-rich
-loguru
-PyYAML
-requests
-httpx
-
-#################################################
-# File Handling
-#################################################
-
-aiofiles
-
-#################################################
-# Model Downloading
-#################################################
-
-huggingface_hub
-gdown
-
-#################################################
-# Visualization
-#################################################
-
-matplotlib
-seaborn
-
-#################################################
-# Deployment
-#################################################
-
-gunicorn
-
-#################################################
-# Environment
-#################################################
-
-python-dotenv
-
-#################################################
-# Benchmarking
-#################################################
-
-lpips
-torchmetrics
-
-#################################################
-# Lip-sync model extras
-#################################################
-
-omegaconf
-DeepCache
-face-alignment
-basicsr
-realesrgan
-mmcv
-mmdet
-mmpose
-openmim
-
-black
-isort
-flake8
-pytest
-pytest-asyncio
-
-#################################################
-# Demo UI
-#################################################
-
-gradio
-jinja2
+# ── Utilities ─────────────────────────────────────────────────────────────────
+tqdm>=4.66
+rich>=13.0
+PyYAML>=6.0
+huggingface_hub>=0.21
+requests>=2.31
+httpx>=0.27
+python-dotenv>=1.0

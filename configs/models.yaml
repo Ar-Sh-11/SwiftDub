@@ -1,101 +1,15 @@
-# SwiftDub — Model Registry
-# All paths relative to project root. Env vars override via .env
+# SwiftDub — LatentSync model configuration
+# Paths relative to project root
 
-models:
-  wav2lip:
-    display_name: "Wav2Lip + GAN"
-    repo_url: "https://github.com/Rudrabha/Wav2Lip.git"
-    repo_dir: "models/repos/wav2lip"
-    checkpoint: "models/weights/wav2lip/wav2lip_gan.pth"
-    s3fd_checkpoint: "models/repos/wav2lip/face_detection/detection/sfd/s3fd.pth"
-    s3fd_url: "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
-    conda_env: "swiftdub"          # uses main env
-    vram_gb: 4
-    paper: "https://arxiv.org/abs/2008.10010"
-    inference_cmd: >
-      python inference.py
-      --checkpoint_path {checkpoint}
-      --face {video}
-      --audio {audio}
-      --outfile {output}
-      --pads 0 10 0 0
-
-  video_retalking:
-    display_name: "VideoReTalking"
-    repo_url: "https://github.com/OpenTalker/video-retalking.git"
-    repo_dir: "models/repos/video_retalking"
-    checkpoint_dir: "models/weights/video_retalking"
-    conda_env: "swiftdub-videoretalking"   # isolated: requires torch 1.9 + cu111
-    vram_gb: 6
-    paper: "https://arxiv.org/abs/2211.14758"
-    checkpoints:
-      - name: "30_net_gen.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/30_net_gen.pth"
-      - name: "DNet.pt"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/DNet.pt"
-      - name: "ENet.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/ENet.pth"
-      - name: "LNet.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/LNet.pth"
-      - name: "face3d_pretrain_epoch_20.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/face3d_pretrain_epoch_20.pth"
-      - name: "GFPGANv1.3.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/GFPGANv1.3.pth"
-      - name: "GPEN-BFR-512.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/GPEN-BFR-512.pth"
-      - name: "ParseNet-latest.pth"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/ParseNet-latest.pth"
-      - name: "expression.mat"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/expression.mat"
-      - name: "BFM.zip"
-        github_release: "https://github.com/OpenTalker/video-retalking/releases/download/v0.0.1/BFM.zip"
-    inference_cmd: >
-      python3 inference.py
-      --face {video}
-      --audio {audio}
-      --outfile {output}
-
-  musetalk:
-    display_name: "MuseTalk v1.5"
-    repo_url: "https://github.com/TMElyralab/MuseTalk.git"
-    repo_dir: "models/repos/musetalk"
-    unet_path: "models/weights/musetalk/musetalkV15/unet.pth"
-    unet_config: "models/weights/musetalk/musetalkV15/musetalk.json"
-    hf_repo: "TMElyralab/MuseTalk"
-    conda_env: "swiftdub-musetalk"  # separate env (mmcv)
-    vram_gb: 8
-    paper: "https://arxiv.org/abs/2410.10122"
-    bbox_shift: 0
-
-  latentsync:
-    display_name: "LatentSync 1.5"
-    repo_url: "https://github.com/bytedance/LatentSync.git"
-    repo_dir: "models/repos/latentsync"
-    checkpoint: "models/weights/latentsync/latentsync_unet.pt"
-    whisper_checkpoint: "models/repos/latentsync/checkpoints/whisper/tiny.pt"
-    hf_repo: "ByteDance/LatentSync-1.5"
-    unet_config: "configs/unet/stage2.yaml"     # relative to repo_dir
-    conda_env: "swiftdub"
-    vram_gb: 8
-    paper: "https://arxiv.org/abs/2412.09262"
-    inference_steps: 20
-    guidance_scale: 1.5
-
-  sadtalker:
-    display_name: "SadTalker"
-    repo_url: "https://github.com/OpenTalker/SadTalker.git"
-    repo_dir: "models/repos/sadtalker"
-    checkpoint_dir: "models/weights/sadtalker"
-    hf_repo: "vinthony/SadTalker"
-    conda_env: "swiftdub"
-    vram_gb: 6
-    paper: "https://arxiv.org/abs/2211.12194"
-    inference_cmd: >
-      python inference.py
-      --driven_audio {audio}
-      --source_image {frame}
-      --checkpoint_dir {checkpoint_dir}
-      --result_dir {output_dir}
-      --still
-      --preprocess full
-      --enhancer gfpgan
+latentsync:
+  display_name: "LatentSync 1.5"
+  repo_url: "https://github.com/bytedance/LatentSync.git"
+  repo_dir: "models/repos/latentsync"
+  checkpoint: "models/weights/latentsync/latentsync_unet.pt"
+  whisper_checkpoint: "models/repos/latentsync/checkpoints/whisper/tiny.pt"
+  hf_repo: "ByteDance/LatentSync-1.5"
+  unet_config: "configs/unet/stage2.yaml"
+  vram_gb: 8
+  paper: "https://arxiv.org/abs/2412.09262"
+  inference_steps: 20
+  guidance_scale: 1.5

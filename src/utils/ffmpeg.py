@@ -12,18 +12,17 @@ from src.config import settings
 
 
 def _resolve_ffmpeg() -> str:
-    if shutil.which(settings.ffmpeg_path):
-        return settings.ffmpeg_path
+    if shutil.which(settings.ffmpeg_bin):
+        return settings.ffmpeg_bin
     try:
         import imageio_ffmpeg
-
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception:
-        return settings.ffmpeg_path
+        return "ffmpeg"
 
 
 def ffmpeg_available() -> bool:
-    return bool(shutil.which(settings.ffmpeg_path)) or _bundled_ffmpeg_available()
+    return bool(shutil.which(settings.ffmpeg_bin)) or _bundled_ffmpeg_available()
 
 
 def _bundled_ffmpeg_available() -> bool:

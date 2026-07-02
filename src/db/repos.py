@@ -1,14 +1,15 @@
-"""Repository pattern for MongoDB job documents."""
+"""Job persistence — MongoDB with in-memory fallback when DB is unavailable."""
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from src.db.client import get_db
+from loguru import logger
 
-JOBS = "jobs"
+from src.config import settings
 
 
 class JobStatus(str, Enum):
@@ -18,47 +19,76 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+# ── In-memory fallback store ──────────────────────────────────────────────────
+_mem_store: dict[str, dict] = {}
+_use_mongo: bool | None = None   # lazily determined
 
 
-async def create_job(job_id: str, model: str, metadata: dict[str, Any] | None = None) -> dict:
+async def _mongo_available() -> bool:
+    global _use_mongo
+    if _use_mongo is not None:
+        return _use_mongo
+    if settings.disable_db:
+        _use_mongo = False
+        return False
+    try:
+        from src.db.client import db
+        await asyncio.wait_for(db.command("ping"), timeout=2.0)
+        _use_mongo = True
+    except Exception as exc:
+        logger.warning("MongoDB unavailable ({}), using in-memory job store", exc)
+        _use_mongo = False
+    return _use_mongo
+
+
+async def create_job(job_id: str, model: str = "latentsync", metadata: dict | None = None) -> dict:
     doc = {
-        "_id": job_id,
+        "job_id": job_id,
         "model": model,
-        "status": JobStatus.QUEUED,
-        "created_at": _now(),
-        "updated_at": _now(),
+        "status": "queued",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
         "output_video": None,
         "error": None,
         "metadata": metadata or {},
     }
-    await get_db()[JOBS].insert_one(doc)
-    return _clean(doc)
+    if await _mongo_available():
+        from src.db.client import db
+        await db.jobs.insert_one({**doc, "_id": job_id})
+    else:
+        _mem_store[job_id] = doc
+    return doc
 
 
-async def update_job(job_id: str, **fields: Any) -> dict | None:
-    fields["updated_at"] = _now()
-    result = await get_db()[JOBS].find_one_and_update(
-        {"_id": job_id},
-        {"$set": fields},
-        return_document=True,
-    )
-    return _clean(result) if result else None
+async def update_job(job_id: str, **fields: Any) -> None:
+    fields["updated_at"] = datetime.now(timezone.utc)
+    # Serialize enum values to strings
+    if "status" in fields and hasattr(fields["status"], "value"):
+        fields["status"] = fields["status"].value
+    if await _mongo_available():
+        from src.db.client import db
+        await db.jobs.update_one({"_id": job_id}, {"$set": fields})
+    else:
+        if job_id in _mem_store:
+            _mem_store[job_id].update(fields)
 
 
 async def get_job(job_id: str) -> dict | None:
-    doc = await get_db()[JOBS].find_one({"_id": job_id})
-    return _clean(doc) if doc else None
+    if await _mongo_available():
+        from src.db.client import db
+        doc = await db.jobs.find_one({"_id": job_id})
+        if doc:
+            doc["job_id"] = doc.pop("_id", job_id)
+        return doc
+    return _mem_store.get(job_id)
 
 
 async def list_jobs(limit: int = 50) -> list[dict]:
-    cursor = get_db()[JOBS].find({}, sort=[("created_at", -1)], limit=limit)
-    return [_clean(d) async for d in cursor]
-
-
-def _clean(doc: dict) -> dict:
-    """Rename _id → job_id for clean API responses."""
-    if doc and "_id" in doc:
-        doc["job_id"] = doc.pop("_id")
-    return doc
+    if await _mongo_available():
+        from src.db.client import db
+        cursor = db.jobs.find().sort("created_at", -1).limit(limit)
+        docs = await cursor.to_list(length=limit)
+        for d in docs:
+            d["job_id"] = d.pop("_id", d.get("job_id"))
+        return docs
+    return sorted(_mem_store.values(), key=lambda d: d["created_at"], reverse=True)[:limit]

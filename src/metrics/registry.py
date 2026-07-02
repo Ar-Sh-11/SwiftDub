@@ -1,35 +1,48 @@
-"""Prometheus metrics definitions."""
+"""Prometheus metrics for LatentSync dubbing service."""
 
 from __future__ import annotations
 
-from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
 
 REGISTRY = CollectorRegistry(auto_describe=True)
 
 inference_requests = Counter(
-    "swiftdub_inference_requests_total",
-    "Total inference requests",
+    "latentsync_requests_total",
+    "Total dubbing requests",
     ["model", "status"],
     registry=REGISTRY,
 )
 
 inference_duration = Histogram(
-    "swiftdub_inference_duration_seconds",
-    "Inference latency in seconds",
+    "latentsync_inference_duration_seconds",
+    "LatentSync inference latency in seconds",
     ["model"],
-    buckets=[5, 10, 30, 60, 120, 300, 600],
+    buckets=[10, 30, 60, 90, 120, 180, 300, 600],
     registry=REGISTRY,
 )
 
 active_jobs = Gauge(
-    "swiftdub_active_jobs",
-    "Number of currently processing jobs",
+    "latentsync_active_jobs",
+    "Number of LatentSync jobs currently running",
     registry=REGISTRY,
 )
 
-cache_hits = Counter(
-    "swiftdub_cache_hits_total",
-    "Redis cache hits",
-    ["model"],
+queue_depth = Gauge(
+    "latentsync_queue_depth",
+    "Jobs waiting for a GPU slot",
+    registry=REGISTRY,
+)
+
+batch_size_histogram = Histogram(
+    "latentsync_batch_size",
+    "Number of videos in a batch request",
+    buckets=[1, 2, 3, 5, 10, 20],
+    registry=REGISTRY,
+)
+
+video_duration_seconds = Histogram(
+    "latentsync_video_duration_seconds",
+    "Duration of input videos processed",
+    buckets=[5, 10, 30, 60, 120, 300],
     registry=REGISTRY,
 )

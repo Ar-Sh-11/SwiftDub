@@ -3,15 +3,15 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
-swiftdub/ 
 .env
 
-# Data & outputs
+# Runtime data
 data/uploads/
 data/outputs/
 data/temp/
+logs/
 
-# Model weights (large files — download via scripts/download_models.py)
+# Model weights (download via scripts/download/models.py)
 models/weights/
 models/repos/
 
@@ -20,18 +20,13 @@ models/repos/
 !models/repos/.gitkeep
 !data/samples/.gitkeep
 
-# IDE
+# Legacy (optional — uncomment to exclude from git on next push)
+# legacy/
+
+# IDE / OS
 .idea/
 .vscode/
 *.swp
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Jupyter
 .ipynb_checkpoints/
-
-# Logs
-*.log
-.ssh/

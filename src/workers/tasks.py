@@ -1,4 +1,4 @@
-"""Celery worker tasks for async inference jobs."""
+"""Celery worker tasks for async dubbing jobs."""
 
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ celery_app.conf.task_serializer = "json"
 celery_app.conf.result_serializer = "json"
 celery_app.conf.accept_content = ["json"]
 celery_app.conf.task_track_started = True
+celery_app.conf.worker_prefetch_multiplier = 1  # one task at a time per worker
 
 
-def _run_async(coro):
-    """Run an async coroutine from a sync Celery task."""
+def _run(coro):
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
@@ -31,38 +31,37 @@ def _run_async(coro):
         loop.close()
 
 
-@celery_app.task(name="swiftdub.inference", bind=True, max_retries=0)
-def run_inference(self, job_id: str, video_path: str, audio_path: str | None, model: str):
-    """Run lip-sync inference and update the job document in MongoDB."""
-    from src.core.pipeline import run_pipeline
+@celery_app.task(name="swiftdub.dub", bind=True, max_retries=0)
+def dub_task(
+    self,
+    job_id: str,
+    video_path: str,
+    audio_path: str | None,
+    inference_steps: int | None = None,
+    guidance_scale: float | None = None,
+    seed: int | None = None,
+):
+    """Celery task: run LatentSync dubbing and update job status."""
+    from src.core.pipeline import dub_video
     from src.db.repos import JobStatus, update_job
-    from src.metrics.registry import active_jobs, inference_duration, inference_requests
 
-    _run_async(update_job(job_id, status=JobStatus.PROCESSING))
-    active_jobs.inc()
-    t0 = time.time()
+    _run(update_job(job_id, status=JobStatus.PROCESSING))
 
     try:
-        output_path = _run_async(
-            run_pipeline(
+        output = _run(
+            dub_video(
                 job_id=job_id,
                 video_path=Path(video_path),
                 audio_path=Path(audio_path) if audio_path else None,
-                model=model,
+                inference_steps=inference_steps,
+                guidance_scale=guidance_scale,
+                seed=seed,
             )
         )
-        elapsed = time.time() - t0
-        inference_duration.labels(model=model).observe(elapsed)
-        inference_requests.labels(model=model, status="success").inc()
-        _run_async(update_job(job_id, status=JobStatus.COMPLETED, output_video=str(output_path)))
-        return str(output_path)
+        _run(update_job(job_id, status=JobStatus.COMPLETED, output_video=str(output)))
+        return str(output)
 
     except Exception as exc:
-        elapsed = time.time() - t0
-        inference_duration.labels(model=model).observe(elapsed)
-        inference_requests.labels(model=model, status="error").inc()
-        logger.exception("Inference failed for job {}", job_id)
-        _run_async(update_job(job_id, status=JobStatus.FAILED, error=str(exc)))
+        logger.exception("Async dub failed for job {}", job_id)
+        _run(update_job(job_id, status=JobStatus.FAILED, error=str(exc)[:1000]))
         raise
-    finally:
-        active_jobs.dec()

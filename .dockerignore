@@ -1,0 +1,28 @@
+# Legacy code — not used in production deployment
+legacy/
+
+# Dev artifacts
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Runtime data (mounted as volumes)
+data/uploads/
+data/outputs/
+data/temp/
+logs/
+output/
+
+# Model weights downloaded at runtime
+models/weights/
+models/repos/
+
+# Local env
+.env

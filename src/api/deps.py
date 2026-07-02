@@ -1,17 +1,18 @@
-"""FastAPI dependency providers."""
+"""FastAPI dependencies."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import aiofiles
 from fastapi import UploadFile
-from loguru import logger
+
+from src.config import settings
 
 
-async def save_upload(upload: UploadFile, dest_path) -> None:
-    """Stream an uploaded file to disk."""
-    import shutil
-    from pathlib import Path
-    dest = Path(dest_path)
+async def save_upload(upload: UploadFile, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with dest.open("wb") as f:
-        shutil.copyfileobj(upload.file, f)
-    logger.debug("Saved upload → {}", dest)
+    async with aiofiles.open(dest, "wb") as f:
+        while chunk := await upload.read(1024 * 1024):
+            await f.write(chunk)
+    return dest

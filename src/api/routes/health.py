@@ -1,4 +1,4 @@
-"""Health, readiness, and model listing endpoints."""
+"""Health, readiness, and Prometheus metrics endpoints."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from src.api.schemas import HealthResponse, ModelInfo
+from src.api.schemas import HealthResponse
 from src.config import settings
-from src.core.models.registry import status as model_status
-from src.metrics.registry import REGISTRY
+from src.core.latentsync import is_ready
+from src.metrics.registry import REGISTRY, active_jobs
 from src.utils.ffmpeg import ffmpeg_available
 
 router = APIRouter(tags=["observability"])
@@ -21,27 +21,13 @@ def health() -> HealthResponse:
     return HealthResponse(
         cuda_available=torch.cuda.is_available(),
         ffmpeg_available=ffmpeg_available(),
-        models=model_status(),
+        model_ready=is_ready(),
+        max_concurrent_jobs=settings.max_concurrent_jobs,
+        active_jobs=int(active_jobs._value.get()),
     )
 
 
-@router.get("/models", response_model=list[ModelInfo])
-def list_models() -> list[ModelInfo]:
-    cfgs = settings.model_configs
-    ready = model_status()
-    return [
-        ModelInfo(
-            name=name,
-            display_name=cfg.get("display_name", name),
-            available=ready.get(name, False),
-            vram_gb=cfg.get("vram_gb", 0),
-            paper=cfg.get("paper", ""),
-        )
-        for name, cfg in cfgs.items()
-    ]
-
-
-@router.get("/metrics")
+@router.get("/metrics", include_in_schema=False)
 def metrics() -> Response:
     data = generate_latest(REGISTRY)
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)
