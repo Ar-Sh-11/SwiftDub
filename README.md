@@ -68,7 +68,7 @@ pip install -r requirements.txt
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 ```
 
-### 2. Download LatentSync weights
+### 2. Download LatentSync weights from hf repo
 
 ```bash
 python scripts/download/models.py --latentsync-version 1.5
