@@ -25,4 +25,4 @@ models/weights/
 models/repos/
 
 # Local env
-.env
+#.env
