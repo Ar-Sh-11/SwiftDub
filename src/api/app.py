@@ -39,6 +39,13 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if not settings.disable_db:
+        try:
+            from src.cache.client import close as close_redis
+            await close_redis()
+        except Exception:
+            pass
+
     logger.info("{} stopped", settings.app_name)
 
 
@@ -46,7 +53,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description=(
-            "SwiftDub — production video dubbing service powered by LatentSync 1.5. "
+            "SwiftDub — production video dubbing with LatentSync 1.5 and MuseTalk v1.5. "
             "Upload a video + audio and receive a lip-synced MP4."
         ),
         version="2.0.0",

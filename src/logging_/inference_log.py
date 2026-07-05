@@ -59,6 +59,7 @@ def setup_logging() -> None:
 def log_inference_event(
     *,
     job_id: str,
+    model: str = "latentsync",
     status: str,
     elapsed_s: float,
     wall_s: float,
@@ -74,7 +75,7 @@ def log_inference_event(
     record: dict[str, Any] = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "job_id": job_id,
-        "model": "latentsync",
+        "model": model,
         "status": status,
         "inference_s": round(elapsed_s, 3),
         "wall_s": round(wall_s, 3),

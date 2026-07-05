@@ -1,4 +1,4 @@
-# SwiftDub — LatentSync model configuration
+# SwiftDub — model configuration
 # Paths relative to project root
 
 latentsync:
@@ -13,3 +13,15 @@ latentsync:
   paper: "https://arxiv.org/abs/2412.09262"
   inference_steps: 20
   guidance_scale: 1.5
+
+musetalk:
+  display_name: "MuseTalk v1.5"
+  repo_url: "https://github.com/TMElyralab/MuseTalk.git"
+  repo_dir: "models/repos/musetalk"
+  unet_path: "models/weights/musetalk/musetalkV15/unet.pth"
+  unet_config: "models/weights/musetalk/musetalkV15/musetalk.json"
+  whisper_dir: "models/repos/musetalk/models/whisper"
+  hf_repo: "TMElyralab/MuseTalk"
+  vram_gb: 8
+  paper: "https://arxiv.org/abs/2410.10122"
+  bbox_shift: 0

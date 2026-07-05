@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from pathlib import Path
 
 from celery import Celery
@@ -20,7 +19,7 @@ celery_app.conf.task_serializer = "json"
 celery_app.conf.result_serializer = "json"
 celery_app.conf.accept_content = ["json"]
 celery_app.conf.task_track_started = True
-celery_app.conf.worker_prefetch_multiplier = 1  # one task at a time per worker
+celery_app.conf.worker_prefetch_multiplier = 1
 
 
 def _run(coro):
@@ -37,30 +36,33 @@ def dub_task(
     job_id: str,
     video_path: str,
     audio_path: str | None,
+    model: str = "latentsync",
     inference_steps: int | None = None,
     guidance_scale: float | None = None,
     seed: int | None = None,
+    bbox_shift: int | None = None,
+    enable_deepcache: bool | None = None,
 ):
-    """Celery task: run LatentSync dubbing and update job status."""
     from src.core.pipeline import dub_video
     from src.db.repos import JobStatus, update_job
 
     _run(update_job(job_id, status=JobStatus.PROCESSING))
-
     try:
         output = _run(
             dub_video(
                 job_id=job_id,
                 video_path=Path(video_path),
                 audio_path=Path(audio_path) if audio_path else None,
+                model=model,
                 inference_steps=inference_steps,
                 guidance_scale=guidance_scale,
                 seed=seed,
+                enable_deepcache=enable_deepcache,
+                bbox_shift=bbox_shift,
             )
         )
         _run(update_job(job_id, status=JobStatus.COMPLETED, output_video=str(output)))
         return str(output)
-
     except Exception as exc:
         logger.exception("Async dub failed for job {}", job_id)
         _run(update_job(job_id, status=JobStatus.FAILED, error=str(exc)[:1000]))

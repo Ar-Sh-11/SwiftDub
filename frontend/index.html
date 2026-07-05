@@ -106,7 +106,7 @@
 <header>
   <div class="status-dot" id="hd-dot"></div>
   <h1>SwiftDub</h1>
-  <span class="badge">LatentSync 1.5</span>
+  <span class="badge" id="model-badge">LatentSync 1.5</span>
   <div style="margin-left:auto;" id="health-pills" class="health-bar"></div>
 </header>
 
@@ -117,6 +117,14 @@
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 10l4.55-2.28A1 1 0 0121 8.67v6.66a1 1 0 01-1.45.9L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
       Single Video Dub
     </h2>
+
+    <div class="field">
+      <label>Lip-sync model</label>
+      <select id="inp-model" onchange="onModelChange()">
+        <option value="latentsync">LatentSync 1.5 (diffusion, best sync)</option>
+        <option value="musetalk">MuseTalk v1.5 (fast, real-time)</option>
+      </select>
+    </div>
 
     <div class="field">
       <label>Video file</label>
@@ -136,6 +144,7 @@
       </div>
     </div>
 
+    <div id="latentsync-params">
     <div class="row">
       <div class="field">
         <label>Inference steps <span class="range-val" id="steps-val">20</span></label>
@@ -153,10 +162,14 @@
         <input type="number" id="inp-seed" value="1247" style="width:100px"/>
       </div>
       <div class="toggle" style="margin-top:1.2rem">
-        <input type="checkbox" id="inp-sync" checked/> <span>Wait for result</span>
-      </div>
-      <div class="toggle" style="margin-top:1.2rem">
         <input type="checkbox" id="inp-deepcache"/> <span>DeepCache</span>
+      </div>
+    </div>
+    </div>
+
+    <div class="row" style="align-items:center">
+      <div class="toggle">
+        <input type="checkbox" id="inp-sync" checked/> <span>Wait for result</span>
       </div>
     </div>
 
@@ -177,6 +190,14 @@
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
       Batch Dub (up to 10 videos)
     </h2>
+
+    <div class="field">
+      <label>Model</label>
+      <select id="inp-bmodel">
+        <option value="latentsync">LatentSync 1.5</option>
+        <option value="musetalk">MuseTalk v1.5</option>
+      </select>
+    </div>
 
     <div class="field">
       <label>Video files</label>
@@ -248,19 +269,33 @@ document.getElementById('inp-batch').addEventListener('change', function() {
   document.getElementById('batch-files-list').textContent = names || '';
 });
 
+// ── Model selector ───────────────────────────────────────────────────────────
+function onModelChange() {
+  const m = document.getElementById('inp-model').value;
+  document.getElementById('latentsync-params').style.display = m === 'latentsync' ? 'block' : 'none';
+  document.getElementById('model-badge').textContent = m === 'latentsync' ? 'LatentSync 1.5' : 'MuseTalk v1.5';
+}
+onModelChange();
+
 // ── Health check ─────────────────────────────────────────────────────────────
 async function checkHealth() {
   try {
     const r = await fetch(`${API}/health`);
     const d = await r.json();
     const pills = document.getElementById('health-pills');
+    const modelPills = Object.entries(d.models || {}).map(([name, ok]) =>
+      ({ label: name, ok })
+    );
     pills.innerHTML = [
       { label: 'CUDA', ok: d.cuda_available },
       { label: 'ffmpeg', ok: d.ffmpeg_available },
-      { label: 'LatentSync', ok: d.model_ready },
+      ...modelPills,
+      { label: `GPU ${d.memory?.gpu_pct ?? 0}%`, ok: (d.memory?.gpu_pct ?? 0) < 95, warn: (d.memory?.gpu_pct ?? 0) >= 85 },
       { label: `${d.active_jobs}/${d.max_concurrent_jobs} jobs`, ok: true, warn: d.active_jobs >= d.max_concurrent_jobs },
+      { label: d.cache_enabled ? 'cache on' : 'cache off', ok: d.cache_enabled, warn: !d.cache_enabled },
     ].map(p => `<div class="pill"><div class="dot ${p.warn?'warn':p.ok?'ok':'err'}"></div>${p.label}</div>`).join('');
-    document.getElementById('hd-dot').style.background = d.model_ready ? 'var(--green)' : 'var(--red)';
+    const anyReady = Object.values(d.models || {}).some(Boolean);
+    document.getElementById('hd-dot').style.background = anyReady ? 'var(--green)' : 'var(--red)';
   } catch {}
 }
 checkHealth();
@@ -300,12 +335,16 @@ async function submitDub() {
   fd.append('video', video);
   const audio = document.getElementById('inp-audio').files[0];
   if (audio) fd.append('audio', audio);
+  const model = document.getElementById('inp-model').value;
+  fd.append('model', model);
   fd.append('inference_steps', document.getElementById('inp-steps').value);
   fd.append('guidance_scale', document.getElementById('inp-scale').value);
   fd.append('seed', document.getElementById('inp-seed').value);
+  fd.append('enable_deepcache', document.getElementById('inp-deepcache').checked ? 'true' : 'false');
   fd.append('sync', document.getElementById('inp-sync').checked ? 'true' : 'false');
 
-  setStatus('Running LatentSync inference… (this takes 30–120s)', 'var(--accent)');
+  const modelLabel = model === 'latentsync' ? 'LatentSync' : 'MuseTalk';
+  setStatus(`Running ${modelLabel} inference… (30–120s)`, 'var(--accent)');
 
   try {
     const res = await fetch(`${API}/dub`, { method: 'POST', body: fd });
@@ -353,7 +392,7 @@ function showResult(data) {
   video.src = url;
   dl.href = url;
   dl.download = `dubbed_${data.job_id}.mp4`;
-  meta.textContent = `Job: ${data.job_id}`;
+  meta.textContent = `Job: ${data.job_id} | Model: ${data.model || '—'}`;
   panel.style.display = 'block';
   setStatus('Done! ✓', 'var(--green)');
 }
@@ -370,6 +409,7 @@ async function submitBatch() {
   for (const f of files) fd.append('videos', f);
   const audio = document.getElementById('inp-baudio').files[0];
   if (audio) fd.append('audio', audio);
+  fd.append('model', document.getElementById('inp-bmodel').value);
   fd.append('inference_steps', document.getElementById('inp-bsteps').value);
   fd.append('guidance_scale', document.getElementById('inp-bscale').value);
   fd.append('sync', 'false');
@@ -401,9 +441,10 @@ async function loadJobs() {
     const jobs = await r.json();
     if (!jobs.length) { el.textContent = 'No jobs yet.'; return; }
     el.innerHTML = `<table>
-      <thead><tr><th>Job ID</th><th>Status</th><th>Updated</th><th>Output</th></tr></thead>
+      <thead><tr><th>Job ID</th><th>Model</th><th>Status</th><th>Updated</th><th>Output</th></tr></thead>
       <tbody>${jobs.map(j => `<tr>
         <td style="font-family:monospace;font-size:0.75rem;color:var(--muted)">${j.job_id.slice(0,8)}…</td>
+        <td style="font-size:0.75rem">${j.model || '—'}</td>
         <td><span class="status-badge ${j.status}">${j.status}</span></td>
         <td style="color:var(--muted)">${j.updated_at ? new Date(j.updated_at).toLocaleTimeString() : '—'}</td>
         <td>${j.download_url ? `<a class="dl-link" href="${j.download_url}" target="_blank">Download</a>` : j.error ? `<span style="color:var(--red);font-size:0.75rem" title="${j.error}">failed</span>` : '—'}</td>

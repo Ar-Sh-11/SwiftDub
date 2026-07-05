@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-import os
+from enum import Enum
 from pathlib import Path
+from typing import Any
 
+import yaml
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+class ModelName(str, Enum):
+    LATENTSYNC = "latentsync"
+    MUSETALK = "musetalk"
 
 
 class Settings(BaseSettings):
@@ -19,19 +26,32 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
     max_upload_mb: int = 500
+    default_model: ModelName = ModelName.LATENTSYNC
 
     # ── Concurrency ───────────────────────────────────────────────────────────
-    # Max simultaneous LatentSync inference jobs (GPU memory gated)
     max_concurrent_jobs: int = 2
 
-    # ── LatentSync model paths ────────────────────────────────────────────────
+    # ── Memory / cache ────────────────────────────────────────────────────────
+    # Disable Redis result cache when GPU or system RAM exceeds this threshold
+    memory_cache_disable_pct: float = 95.0
+    # Clear CUDA cache after each job when GPU usage exceeds this
+    gpu_clear_cache_pct: float = 85.0
+
+    # ── LatentSync ────────────────────────────────────────────────────────────
     latentsync_repo: Path = ROOT / "models" / "repos" / "latentsync"
     latentsync_ckpt: Path = ROOT / "models" / "weights" / "latentsync" / "latentsync_unet.pt"
-    latentsync_unet_config: str = "configs/unet/stage2.yaml"   # relative to repo
+    latentsync_unet_config: str = "configs/unet/stage2.yaml"
     latentsync_inference_steps: int = 20
     latentsync_guidance_scale: float = 1.5
     latentsync_seed: int = 1247
     latentsync_enable_deepcache: bool = False
+
+    # ── MuseTalk ──────────────────────────────────────────────────────────────
+    musetalk_repo: Path = ROOT / "models" / "repos" / "musetalk"
+    musetalk_unet: Path = ROOT / "models" / "weights" / "musetalk" / "musetalkV15" / "unet.pth"
+    musetalk_unet_config: Path = ROOT / "models" / "weights" / "musetalk" / "musetalkV15" / "musetalk.json"
+    musetalk_whisper_dir: Path = ROOT / "models" / "repos" / "musetalk" / "models" / "whisper"
+    musetalk_bbox_shift: int = 0
 
     # ── Directory layout ─────────────────────────────────────────────────────
     data_dir: Path = ROOT / "data"
@@ -41,16 +61,19 @@ class Settings(BaseSettings):
     temp_dir: Path = ROOT / "data" / "temp"
     logs_dir: Path = ROOT / "logs"
 
-    # ── External services (graceful fallback when not available) ─────────────
+    # ── External services ────────────────────────────────────────────────────
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db: str = "swiftdub"
     redis_url: str = "redis://localhost:6379/0"
     celery_broker: str = "redis://localhost:6379/1"
     celery_backend: str = "redis://localhost:6379/2"
-
-    # Set to true to bypass Redis/MongoDB (dev mode)
     disable_cache: bool = False
     disable_db: bool = False
+
+    @property
+    def model_configs(self) -> dict[str, Any]:
+        cfg_path = ROOT / "configs" / "models.yaml"
+        return yaml.safe_load(cfg_path.read_text())
 
     def ensure_dirs(self) -> None:
         for d in (self.data_dir, self.samples_dir, self.uploads_dir,
@@ -59,7 +82,6 @@ class Settings(BaseSettings):
 
     @property
     def ffmpeg_bin(self) -> str:
-        """Find ffmpeg — prefer imageio_ffmpeg bundled binary."""
         try:
             import imageio_ffmpeg
             return imageio_ffmpeg.get_ffmpeg_exe()
