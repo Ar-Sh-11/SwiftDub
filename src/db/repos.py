@@ -32,13 +32,18 @@ async def _mongo_available() -> bool:
         _use_mongo = False
         return False
     try:
-        from src.db.client import db
-        await asyncio.wait_for(db.command("ping"), timeout=2.0)
+        from src.db.client import get_db
+        await asyncio.wait_for(get_db().command("ping"), timeout=2.0)
         _use_mongo = True
     except Exception as exc:
         logger.warning("MongoDB unavailable ({}), using in-memory job store", exc)
         _use_mongo = False
     return _use_mongo
+
+
+def _db():
+    from src.db.client import get_db
+    return get_db()
 
 
 async def create_job(job_id: str, model: str = "latentsync", metadata: dict | None = None) -> dict:
@@ -53,8 +58,7 @@ async def create_job(job_id: str, model: str = "latentsync", metadata: dict | No
         "metadata": metadata or {},
     }
     if await _mongo_available():
-        from src.db.client import db
-        await db.jobs.insert_one({**doc, "_id": job_id})
+        await _db().jobs.insert_one({**doc, "_id": job_id})
     else:
         _mem_store[job_id] = doc
     return doc
@@ -66,8 +70,7 @@ async def update_job(job_id: str, **fields: Any) -> None:
     if "status" in fields and hasattr(fields["status"], "value"):
         fields["status"] = fields["status"].value
     if await _mongo_available():
-        from src.db.client import db
-        await db.jobs.update_one({"_id": job_id}, {"$set": fields})
+        await _db().jobs.update_one({"_id": job_id}, {"$set": fields})
     else:
         if job_id in _mem_store:
             _mem_store[job_id].update(fields)
@@ -75,8 +78,7 @@ async def update_job(job_id: str, **fields: Any) -> None:
 
 async def get_job(job_id: str) -> dict | None:
     if await _mongo_available():
-        from src.db.client import db
-        doc = await db.jobs.find_one({"_id": job_id})
+        doc = await _db().jobs.find_one({"_id": job_id})
         if doc:
             doc["job_id"] = doc.pop("_id", job_id)
         return doc
@@ -85,8 +87,7 @@ async def get_job(job_id: str) -> dict | None:
 
 async def list_jobs(limit: int = 50) -> list[dict]:
     if await _mongo_available():
-        from src.db.client import db
-        cursor = db.jobs.find().sort("created_at", -1).limit(limit)
+        cursor = _db().jobs.find().sort("created_at", -1).limit(limit)
         docs = await cursor.to_list(length=limit)
         for d in docs:
             d["job_id"] = d.pop("_id", d.get("job_id"))

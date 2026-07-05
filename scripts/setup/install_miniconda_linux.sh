@@ -65,7 +65,7 @@ Activate env:
   conda activate swiftdub
 
 Next:
-  python scripts/download/models.py --model wav2lip
+  python scripts/download/models.py --model latentsync
   python scripts/download/datasets.py --split benchmark
   python -m src.main
 "

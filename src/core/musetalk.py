@@ -24,7 +24,7 @@ def _subprocess_env() -> dict[str, str]:
         env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
     except Exception:
         pass
-    repo = str(settings.musetalk_repo)
+    repo = str(settings.musetalk_vendor)
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = repo + (os.pathsep + existing if existing else "")
     return env
@@ -32,10 +32,11 @@ def _subprocess_env() -> dict[str, str]:
 
 def is_ready() -> bool:
     return (
-        settings.musetalk_repo.exists()
+        settings.musetalk_vendor.exists()
         and settings.musetalk_unet.exists()
         and settings.musetalk_unet_config.exists()
         and settings.musetalk_whisper_dir.exists()
+        and settings.musetalk_dwpose.exists()
     )
 
 
@@ -49,7 +50,7 @@ def run_musetalk(
 ) -> float:
     if not is_ready():
         raise RuntimeError(
-            f"MuseTalk weights missing. Repo: {settings.musetalk_repo} | "
+            f"MuseTalk not ready. Vendor: {settings.musetalk_vendor} | "
             f"UNet: {settings.musetalk_unet}"
         )
 
@@ -58,7 +59,12 @@ def run_musetalk(
     result_dir.mkdir(parents=True, exist_ok=True)
     shift = bbox_shift if bbox_shift is not None else settings.musetalk_bbox_shift
 
-    task_cfg = {"task_0": {"video_path": str(video_path), "audio_path": str(audio_path)}}
+    task_cfg = {
+        "task_0": {
+            "video_path": str(video_path.resolve()),
+            "audio_path": str(audio_path.resolve()),
+        }
+    }
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
         yaml.safe_dump(task_cfg, f)
         cfg_path = f.name
@@ -80,7 +86,7 @@ def run_musetalk(
     try:
         result = subprocess.run(
             cmd,
-            cwd=str(settings.musetalk_repo),
+            cwd=str(settings.musetalk_vendor),
             env=_subprocess_env(),
             capture_output=True,
             text=True,
@@ -99,8 +105,15 @@ def run_musetalk(
         )
 
     produced = sorted(result_dir.rglob("*.mp4"), key=lambda p: p.stat().st_mtime)
+    # Exclude concat preview files
+    produced = [p for p in produced if "_concat" not in p.name]
     if not produced:
-        raise RuntimeError(f"MuseTalk produced no output in {result_dir}")
+        stderr_tail = result.stderr[-1500:] if result.stderr else ""
+        stdout_tail = result.stdout[-1500:] if result.stdout else ""
+        raise RuntimeError(
+            f"MuseTalk produced no output in {result_dir}\n"
+            f"STDERR: {stderr_tail}\nSTDOUT: {stdout_tail}"
+        )
 
     shutil.copy2(produced[-1], output_path)
     shutil.rmtree(result_dir, ignore_errors=True)

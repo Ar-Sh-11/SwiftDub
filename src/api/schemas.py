@@ -23,10 +23,25 @@ class HealthResponse(BaseModel):
     cuda_available: bool
     ffmpeg_available: bool
     models: dict[str, bool]
+    musetalk_disabled: bool = False
     max_concurrent_jobs: int
     active_jobs: int
     memory: dict[str, float] = Field(default_factory=dict)
     cache_enabled: bool = True
+
+
+class ServiceInfo(BaseModel):
+    port: int
+    url: str
+    local_url: str
+    note: str
+    reachable_via_proxy: bool
+    up: bool = False
+
+
+class ServicesResponse(BaseModel):
+    hint: str
+    services: dict[str, ServiceInfo]
 
 
 class DubResponse(BaseModel):

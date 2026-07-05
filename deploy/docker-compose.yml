@@ -110,7 +110,7 @@ services:
     container_name: swiftdub-flower
     restart: unless-stopped
     ports:
-      - "5555:5555"
+      - "5556:5555"
     environment:
       CELERY_BROKER_URL: redis://redis:6379/1
     depends_on:
@@ -120,8 +120,10 @@ services:
     image: prom/prometheus:v2.49.0
     container_name: swiftdub-prometheus
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "9090:9090"
+      - "9092:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -138,6 +140,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: swiftdub
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro

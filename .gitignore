@@ -4,21 +4,23 @@ __pycache__/
 *.egg-info/
 .venv/
 legacy/
-# .env
-# swiftdub/
+.env
+swiftdub/
 
 # Runtime data
 data/uploads/
-data/outputs/
+# data/outputs/
 data/temp/
 logs/
 
-# Model weights (download via scripts/download/models.py)
+# Model weights + vendor snapshots (download via scripts/download/models.py)
 models/weights/
+models/vendor/
 models/repos/
 
 # Keep directory structure
 !models/weights/.gitkeep
+!models/vendor/.gitkeep
 !models/repos/.gitkeep
 !data/samples/.gitkeep
 

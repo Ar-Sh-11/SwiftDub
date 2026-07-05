@@ -26,16 +26,20 @@ def _ffmpeg_env() -> dict[str, str]:
         env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
     except Exception:
         pass
-    # The latentsync package lives inside its own repo directory
-    repo = str(settings.latentsync_repo)
+    # Vendor inference snapshot (gitignored; not a separate git repo)
+    repo = str(settings.latentsync_vendor)
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = repo + (os.pathsep + existing if existing else "")
     return env
 
 
 def is_ready() -> bool:
-    """Return True when model weights and repo are present."""
-    return settings.latentsync_repo.exists() and settings.latentsync_ckpt.exists()
+    """Return True when vendor snapshot and weights are present."""
+    return (
+        settings.latentsync_vendor.exists()
+        and settings.latentsync_ckpt.exists()
+        and settings.latentsync_whisper.exists()
+    )
 
 
 def run_latentsync(
@@ -69,8 +73,8 @@ def run_latentsync(
     """
     if not is_ready():
         raise RuntimeError(
-            f"LatentSync weights missing. "
-            f"Ckpt: {settings.latentsync_ckpt} | Repo: {settings.latentsync_repo}"
+            f"LatentSync not ready. "
+            f"Ckpt: {settings.latentsync_ckpt} | Vendor: {settings.latentsync_vendor}"
         )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,15 +87,15 @@ def run_latentsync(
     td = temp_dir or (settings.temp_dir / f"ls_{output_path.stem}")
     td.mkdir(parents=True, exist_ok=True)
 
-    unet_cfg = settings.latentsync_repo / settings.latentsync_unet_config
+    unet_cfg = settings.latentsync_vendor / settings.latentsync_unet_config
 
     cmd = [
         sys.executable,
         "scripts/inference.py",
         "--unet_config_path", str(unet_cfg),
         "--inference_ckpt_path", str(settings.latentsync_ckpt),
-        "--video_path", str(video_path),
-        "--audio_path", str(audio_path),
+        "--video_path", str(video_path.resolve()),
+        "--audio_path", str(audio_path.resolve()),
         "--video_out_path", str(output_path),
         "--inference_steps", str(steps),
         "--guidance_scale", str(scale),
@@ -104,10 +108,13 @@ def run_latentsync(
     logger.debug("LatentSync cmd: {}", " ".join(cmd))
     t0 = time.time()
 
+    env = _ffmpeg_env()
+    env["SWIFTDUB_LATENTSYNC_WHISPER"] = str(settings.latentsync_whisper.resolve())
+
     result = subprocess.run(
         cmd,
-        cwd=str(settings.latentsync_repo),
-        env=_ffmpeg_env(),
+        cwd=str(settings.latentsync_vendor),
+        env=env,
         capture_output=True,
         text=True,
     )

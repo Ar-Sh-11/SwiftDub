@@ -1,18 +1,20 @@
 {
-  "title": "SwiftDub",
+  "title": "SwiftDub — Dubbing Metrics",
   "uid": "swiftdub-main",
   "schemaVersion": 36,
   "refresh": "10s",
+  "timezone": "browser",
   "panels": [
     {
       "id": 1, "type": "stat", "title": "Total Requests",
       "gridPos": {"x": 0, "y": 0, "w": 4, "h": 4},
-      "targets": [{"expr": "sum(swiftdub_inference_requests_total)", "legendFormat": "Total"}]
+      "targets": [{"expr": "sum(swiftdub_requests_total)", "legendFormat": "Total"}]
     },
     {
       "id": 2, "type": "stat", "title": "Success Rate",
       "gridPos": {"x": 4, "y": 0, "w": 4, "h": 4},
-      "targets": [{"expr": "sum(rate(swiftdub_inference_requests_total{status='success'}[5m])) / sum(rate(swiftdub_inference_requests_total[5m]))", "legendFormat": "%"}]
+      "fieldConfig": {"defaults": {"unit": "percentunit"}},
+      "targets": [{"expr": "sum(rate(swiftdub_requests_total{status='success'}[5m])) / sum(rate(swiftdub_requests_total[5m]))", "legendFormat": "%"}]
     },
     {
       "id": 3, "type": "stat", "title": "Active Jobs",
@@ -20,12 +22,24 @@
       "targets": [{"expr": "swiftdub_active_jobs", "legendFormat": "Active"}]
     },
     {
-      "id": 4, "type": "stat", "title": "Cache Hit Rate",
+      "id": 4, "type": "stat", "title": "Queue Depth",
       "gridPos": {"x": 12, "y": 0, "w": 4, "h": 4},
-      "targets": [{"expr": "sum(rate(swiftdub_cache_hits_total[5m]))", "legendFormat": "Hits/s"}]
+      "targets": [{"expr": "swiftdub_queue_depth", "legendFormat": "Queued"}]
     },
     {
-      "id": 5, "type": "timeseries", "title": "Inference Latency p50/p95 (s)",
+      "id": 5, "type": "stat", "title": "GPU Memory %",
+      "gridPos": {"x": 16, "y": 0, "w": 4, "h": 4},
+      "fieldConfig": {"defaults": {"unit": "percent"}},
+      "targets": [{"expr": "swiftdub_gpu_memory_pct", "legendFormat": "GPU"}]
+    },
+    {
+      "id": 6, "type": "stat", "title": "RAM %",
+      "gridPos": {"x": 20, "y": 0, "w": 4, "h": 4},
+      "fieldConfig": {"defaults": {"unit": "percent"}},
+      "targets": [{"expr": "swiftdub_ram_memory_pct", "legendFormat": "RAM"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Inference Latency p50/p95 (s)",
       "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
       "targets": [
         {"expr": "histogram_quantile(0.50, sum by (le, model) (rate(swiftdub_inference_duration_seconds_bucket[5m])))", "legendFormat": "p50 {{model}}"},
@@ -33,10 +47,19 @@
       ]
     },
     {
-      "id": 6, "type": "timeseries", "title": "Requests per model",
+      "id": 8, "type": "timeseries", "title": "Requests per model (req/s)",
       "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
       "targets": [
-        {"expr": "sum by (model) (rate(swiftdub_inference_requests_total[5m]))", "legendFormat": "{{model}}"}
+        {"expr": "sum by (model, status) (rate(swiftdub_requests_total[5m]))", "legendFormat": "{{model}} {{status}}"}
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "GPU / RAM utilisation",
+      "gridPos": {"x": 0, "y": 12, "w": 24, "h": 6},
+      "fieldConfig": {"defaults": {"unit": "percent"}},
+      "targets": [
+        {"expr": "swiftdub_gpu_memory_pct", "legendFormat": "GPU %"},
+        {"expr": "swiftdub_ram_memory_pct", "legendFormat": "RAM %"}
       ]
     }
   ]

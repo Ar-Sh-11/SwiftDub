@@ -19,6 +19,18 @@ def gpu_memory_pct() -> float:
         return 0.0
 
 
+def gpu_free_gb() -> float:
+    """Return free GPU memory in GB."""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return 0.0
+        free, _ = torch.cuda.mem_get_info()
+        return free / (1024 ** 3)
+    except Exception:
+        return 0.0
+
+
 def system_ram_pct() -> float:
     """Return fraction of system RAM in use (0–100)."""
     try:

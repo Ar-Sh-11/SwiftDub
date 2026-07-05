@@ -24,15 +24,17 @@ async def lifespan(app: FastAPI):
     setup_logging()
     settings.ensure_dirs()
     logger.info("{} starting — host={}:{}", settings.app_name, settings.host, settings.port)
-    logger.info("LatentSync repo: {}", settings.latentsync_repo)
+    logger.info("LatentSync vendor: {}", settings.latentsync_vendor)
     logger.info("LatentSync ckpt: {}", settings.latentsync_ckpt)
     logger.info("Max concurrent jobs: {}", settings.max_concurrent_jobs)
+    if settings.is_musetalk_disabled():
+        logger.info("MuseTalk DISABLED — LatentSync only")
 
     # Warm up MongoDB connection (non-blocking)
     if not settings.disable_db:
         try:
-            from src.db.client import db
-            await db.command("ping")
+            from src.db.client import get_db
+            await get_db().command("ping")
             logger.info("MongoDB connected")
         except Exception as exc:
             logger.warning("MongoDB unavailable — using in-memory job store ({})", exc)
@@ -76,6 +78,10 @@ def create_app() -> FastAPI:
     # Serve output videos at /outputs/<filename>
     settings.outputs_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/outputs", StaticFiles(directory=str(settings.outputs_dir)), name="outputs")
+
+    # Sample files for frontend demo loading
+    if settings.samples_dir.exists():
+        app.mount("/samples", StaticFiles(directory=str(settings.samples_dir)), name="samples")
 
     # Serve frontend
     if FRONTEND_DIR.exists():

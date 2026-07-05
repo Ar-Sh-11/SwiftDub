@@ -13,7 +13,7 @@ from src.core import latentsync, musetalk
 from src.logging_.inference_log import log_inference_event
 from src.metrics.registry import active_jobs, inference_duration, inference_requests, queue_depth
 from src.utils.ffmpeg import extract_audio
-from src.utils.memory import release_gpu_memory
+from src.utils.memory import release_gpu_memory, gpu_free_gb, gpu_memory_pct
 
 _inference_sem: asyncio.Semaphore | None = None
 _queue_count: int = 0
@@ -90,6 +90,14 @@ async def dub_video(
         queue_depth.set(_queue_count)
 
         logger.info("[{}] Waiting for GPU slot ({}/{})", job_id, model, settings.max_concurrent_jobs)
+
+        # Wait for VRAM headroom before competing for semaphore
+        need_gb = 10.0 if model == ModelName.LATENTSYNC.value else 7.0
+        for _ in range(60):
+            if gpu_free_gb() >= need_gb or gpu_memory_pct() < 75:
+                break
+            await asyncio.sleep(3)
+
         async with get_semaphore():
             _queue_count = max(0, _queue_count - 1)
             queue_depth.set(_queue_count)

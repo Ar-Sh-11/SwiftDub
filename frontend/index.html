@@ -98,6 +98,21 @@
     .dot.err { background: var(--red); }
     .dot.warn { background: var(--yellow); }
 
+    #batch-pairs-list { margin-top: 0.5rem; }
+    .pair-row {
+      display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem;
+      align-items: end; margin-bottom: 0.6rem; padding: 0.6rem;
+      background: var(--surface); border-radius: 8px; border: 1px solid var(--border);
+    }
+    .pair-row label { font-size: 0.72rem; }
+    .pair-row input[type=file] { font-size: 0.72rem; width: 100%; color: var(--muted); }
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
+    .btn-secondary {
+      padding: 0.45rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.8rem;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { color: var(--red); border-color: rgba(239,68,68,0.4); }
     #batch-files-list { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
   </style>
 </head>
@@ -120,10 +135,7 @@
 
     <div class="field">
       <label>Lip-sync model</label>
-      <select id="inp-model" onchange="onModelChange()">
-        <option value="latentsync">LatentSync 1.5 (diffusion, best sync)</option>
-        <option value="musetalk">MuseTalk v1.5 (fast, real-time)</option>
-      </select>
+      <select id="inp-model" onchange="onModelChange()"></select>
     </div>
 
     <div class="field">
@@ -174,6 +186,9 @@
     </div>
 
     <button class="primary" id="btn-dub" onclick="submitDub()">🚀 Dub Video</button>
+    <div class="btn-row" style="margin-top:0.4rem">
+      <button class="btn-secondary" onclick="loadDemoSamples('single')">📂 Load motivation_20s demo</button>
+    </div>
     <div class="progress-bar-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
     <div id="status-msg">Upload a video to get started.</div>
 
@@ -188,33 +203,23 @@
   <div class="card">
     <h2>
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-      Batch Dub (up to 10 videos)
+      Batch Dub (up to 10 jobs)
     </h2>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="loadDemoSamples('single')">📂 Load demo → Single</button>
+      <button class="btn-secondary" onclick="loadDemoSamples('batch')">📂 Load demo → Batch (1 vid + 2 audio)</button>
+      <button class="btn-secondary" onclick="addPairRow()">+ Add video/audio pair</button>
+    </div>
 
     <div class="field">
       <label>Model</label>
-      <select id="inp-bmodel">
-        <option value="latentsync">LatentSync 1.5</option>
-        <option value="musetalk">MuseTalk v1.5</option>
-      </select>
+      <select id="inp-bmodel"></select>
     </div>
 
     <div class="field">
-      <label>Video files</label>
-      <div class="drop-zone" id="dz-batch" onclick="document.getElementById('inp-batch').click()">
-        <div>🎬 Drop or click to upload multiple videos</div>
-        <div id="batch-files-list"></div>
-        <input type="file" id="inp-batch" accept="video/*" multiple/>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Shared audio (optional)</label>
-      <div class="drop-zone" id="dz-baudio" onclick="document.getElementById('inp-baudio').click()">
-        <div>🎵 Drop or click to upload shared audio</div>
-        <div class="filename" id="fn-baudio"></div>
-        <input type="file" id="inp-baudio" accept="audio/*"/>
-      </div>
+      <label>Video + audio pairs <span style="color:var(--muted)">(or 1 video + N audios)</span></label>
+      <div id="batch-pairs-list"></div>
     </div>
 
     <div class="row">
@@ -228,7 +233,7 @@
       </div>
     </div>
 
-    <button class="primary" id="btn-batch" onclick="submitBatch()">🚀 Dub All Videos</button>
+    <button class="primary" id="btn-batch" onclick="submitBatch()">🚀 Queue Batch Dub</button>
     <div id="batch-status" style="font-size:0.82rem;color:var(--muted);margin-top:0.6rem"></div>
   </div>
 
@@ -240,10 +245,109 @@
     </h2>
     <div id="jobs-table">Loading…</div>
   </div>
+
+  <!-- ── Observability links ── -->
+  <div class="card jobs-panel" id="services-panel">
+    <h2>📊 Observability</h2>
+    <p id="services-hint" style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem"></p>
+    <div id="services-links" style="display:flex;flex-wrap:wrap;gap:0.5rem;font-size:0.82rem"></div>
+  </div>
 </main>
 
 <script>
 const API = '';
+
+const DEMO = {
+  video: {
+    url: '/samples/motivation_20s/Zero Dopamine. Just Raw Truth – No Music. No Edits. No Distractions._133_153.mp4',
+    name: 'Zero Dopamine._133_153.mp4',
+  },
+  audios: [
+    {
+      url: '/samples/motivation_20s/vidssave.com Breaking Bad - I Am the One Who Knocks Scene (S4E6) _ Rotten Tomatoes TV 256KBPS.mp3',
+      name: 'Breaking Bad - I Am the One Who Knocks.mp3',
+    },
+    {
+      url: '/samples/motivation_20s/Zero Dopamine. Just Raw Truth – No Music. No Edits. No Distractions._156_176.mp3',
+      name: 'Zero Dopamine._156_176.mp3',
+    },
+  ],
+};
+
+let pairRowId = 0;
+
+async function fetchAsFile(url, name, mime) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Failed to load ${url}: ${r.status}`);
+  const blob = await r.blob();
+  return new File([blob], name, { type: mime || blob.type });
+}
+
+function setInputFiles(input, files) {
+  const dt = new DataTransfer();
+  for (const f of files) dt.items.add(f);
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change'));
+}
+
+async function loadDemoSamples(target) {
+  try {
+    const videoFile = await fetchAsFile(DEMO.video.url, DEMO.video.name, 'video/mp4');
+    const audioFiles = await Promise.all(
+      DEMO.audios.map(a => fetchAsFile(a.url, a.name, 'audio/mpeg'))
+    );
+
+    if (target === 'single') {
+      setInputFiles(document.getElementById('inp-video'), [videoFile]);
+      setInputFiles(document.getElementById('inp-audio'), [audioFiles[0]]);
+      document.getElementById('fn-video').textContent = videoFile.name;
+      document.getElementById('fn-audio').textContent = audioFiles[0].name;
+      setStatus('Demo files loaded for single dub.', 'var(--green)');
+      return;
+    }
+
+    // Batch: 1 video + 2 audios (2 jobs)
+    const list = document.getElementById('batch-pairs-list');
+    list.innerHTML = '';
+    pairRowId = 0;
+    const row0 = addPairRow();
+    setInputFiles(row0.querySelector('.pair-video'), [videoFile]);
+    setInputFiles(row0.querySelector('.pair-audio'), [audioFiles[0]]);
+    const row1 = addPairRow();
+    setInputFiles(row1.querySelector('.pair-video'), [videoFile]);
+    setInputFiles(row1.querySelector('.pair-audio'), [audioFiles[1]]);
+    document.getElementById('batch-status').textContent =
+      'Demo loaded: 1 video × 2 audios = 2 queued jobs.';
+  } catch (e) {
+    setStatus('Demo load failed: ' + e.message, 'var(--red)');
+    document.getElementById('batch-status').textContent = 'Demo load failed: ' + e.message;
+  }
+}
+
+function addPairRow() {
+  const id = pairRowId++;
+  const list = document.getElementById('batch-pairs-list');
+  const row = document.createElement('div');
+  row.className = 'pair-row';
+  row.dataset.id = id;
+  row.innerHTML = `
+    <div><label>Video</label><input type="file" class="pair-video" accept="video/*"/></div>
+    <div><label>Audio (optional)</label><input type="file" class="pair-audio" accept="audio/*"/></div>
+    <button class="btn-secondary btn-danger" onclick="removePairRow(${id})">✕</button>
+  `;
+  list.appendChild(row);
+  if (list.children.length === 1) return row;
+  return row;
+}
+
+function removePairRow(id) {
+  const list = document.getElementById('batch-pairs-list');
+  const row = list.querySelector(`[data-id="${id}"]`);
+  if (row && list.children.length > 1) row.remove();
+}
+
+// init one pair row
+addPairRow();
 
 // ── File drop zones ──────────────────────────────────────────────────────────
 function setupDrop(dzId, inputId, fnId) {
@@ -261,21 +365,38 @@ function setupDrop(dzId, inputId, fnId) {
 }
 setupDrop('dz-video', 'inp-video', 'fn-video');
 setupDrop('dz-audio', 'inp-audio', 'fn-audio');
-setupDrop('dz-batch', 'inp-batch', null);
-setupDrop('dz-baudio', 'inp-baudio', 'fn-baudio');
 
-document.getElementById('inp-batch').addEventListener('change', function() {
-  const names = Array.from(this.files).map(f => f.name).join(', ');
-  document.getElementById('batch-files-list').textContent = names || '';
-});
+let availableModels = [];
+
+function fillModelSelects(models) {
+  availableModels = models;
+  const opts = models.map(m =>
+    `<option value="${m.name}">${m.display_name}${m.available ? '' : ' (weights missing)'}</option>`
+  ).join('');
+  document.getElementById('inp-model').innerHTML = opts;
+  document.getElementById('inp-bmodel').innerHTML = opts;
+  onModelChange();
+}
+
+async function loadModels() {
+  try {
+    const r = await fetch(`${API}/models`);
+    const models = await r.json();
+    fillModelSelects(models.length ? models : [{ name: 'latentsync', display_name: 'LatentSync 1.5', available: true }]);
+  } catch {
+    fillModelSelects([{ name: 'latentsync', display_name: 'LatentSync 1.5', available: true }]);
+  }
+}
 
 // ── Model selector ───────────────────────────────────────────────────────────
 function onModelChange() {
-  const m = document.getElementById('inp-model').value;
+  const sel = document.getElementById('inp-model');
+  const m = sel.value;
+  const label = sel.selectedOptions[0]?.textContent || 'LatentSync 1.5';
   document.getElementById('latentsync-params').style.display = m === 'latentsync' ? 'block' : 'none';
-  document.getElementById('model-badge').textContent = m === 'latentsync' ? 'LatentSync 1.5' : 'MuseTalk v1.5';
+  document.getElementById('model-badge').textContent = label;
 }
-onModelChange();
+loadModels();
 
 // ── Health check ─────────────────────────────────────────────────────────────
 async function checkHealth() {
@@ -283,9 +404,9 @@ async function checkHealth() {
     const r = await fetch(`${API}/health`);
     const d = await r.json();
     const pills = document.getElementById('health-pills');
-    const modelPills = Object.entries(d.models || {}).map(([name, ok]) =>
-      ({ label: name, ok })
-    );
+    if (d.musetalk_disabled) {
+      modelPills.push({ label: 'musetalk off', ok: true, warn: true });
+    }
     pills.innerHTML = [
       { label: 'CUDA', ok: d.cuda_available },
       { label: 'ffmpeg', ok: d.ffmpeg_available },
@@ -300,6 +421,23 @@ async function checkHealth() {
 }
 checkHealth();
 setInterval(checkHealth, 15000);
+
+async function loadServices() {
+  try {
+    const r = await fetch(`${API}/services`);
+    const d = await r.json();
+    document.getElementById('services-hint').textContent = d.hint;
+    const el = document.getElementById('services-links');
+    el.innerHTML = Object.entries(d.services).map(([name, s]) =>
+      `<a class="dl-link" href="${s.url}" target="_blank" rel="noopener" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;${s.up?'':'opacity:0.5'}">
+        ${name} :${s.port}${s.up ? '' : ' (down)'}
+      </a>`
+    ).join('');
+  } catch {
+    document.getElementById('services-hint').textContent = 'Could not load /services';
+  }
+}
+loadServices();
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 function setStatus(msg, color) {
@@ -399,38 +537,84 @@ function showResult(data) {
 
 // ── Batch dub ────────────────────────────────────────────────────────────────
 async function submitBatch() {
-  const files = document.getElementById('inp-batch').files;
-  if (!files.length) return;
+  const rows = [...document.querySelectorAll('#batch-pairs-list .pair-row')];
+  const pairs = rows.map(row => ({
+    video: row.querySelector('.pair-video').files[0],
+    audio: row.querySelector('.pair-audio').files[0] || null,
+  })).filter(p => p.video);
+
+  if (!pairs.length) {
+    document.getElementById('batch-status').textContent = 'Add at least one video.';
+    return;
+  }
 
   const btn = document.getElementById('btn-batch');
   btn.disabled = true;
+  const statusEl = document.getElementById('batch-status');
+  statusEl.textContent = 'Submitting batch…';
 
   const fd = new FormData();
-  for (const f of files) fd.append('videos', f);
-  const audio = document.getElementById('inp-baudio').files[0];
-  if (audio) fd.append('audio', audio);
+  const videos = pairs.map(p => p.video);
+  const audios = pairs.map(p => p.audio).filter(Boolean);
+
+  // Detect mode: 1 video + N audios vs N paired
+  const uniqueVideos = new Set(videos.map(v => v.name + v.size));
+  if (uniqueVideos.size === 1 && audios.length > 1) {
+    fd.append('videos', videos[0]);
+    for (const a of audios) fd.append('audios', a);
+  } else if (audios.length === pairs.length) {
+    for (const p of pairs) {
+      fd.append('videos', p.video);
+      if (p.audio) fd.append('audios', p.audio);
+    }
+  } else if (audios.length === 1 && videos.length > 1) {
+    for (const v of videos) fd.append('videos', v);
+    fd.append('audios', audios[0]);
+  } else if (audios.length === 0) {
+    for (const v of videos) fd.append('videos', v);
+  } else {
+    statusEl.textContent = 'Mismatch: use equal pairs, 1 shared audio, or 1 video + multiple audios.';
+    btn.disabled = false;
+    return;
+  }
+
   fd.append('model', document.getElementById('inp-bmodel').value);
   fd.append('inference_steps', document.getElementById('inp-bsteps').value);
   fd.append('guidance_scale', document.getElementById('inp-bscale').value);
-  fd.append('sync', 'false');
-
-  document.getElementById('batch-status').textContent = 'Submitting batch…';
 
   try {
     const res = await fetch(`${API}/dub/batch`, { method: 'POST', body: fd });
     const data = await res.json();
     if (!res.ok) {
-      document.getElementById('batch-status').textContent = 'Error: ' + (data.detail || '');
+      statusEl.textContent = 'Error: ' + (data.detail || JSON.stringify(data));
     } else {
-      document.getElementById('batch-status').textContent =
-        `Batch ${data.batch_id} — ${data.total} jobs queued. Check the jobs table below.`;
+      statusEl.textContent =
+        `Batch ${data.batch_id} — ${data.total} jobs queued. Polling jobs table…`;
+      pollBatchJobs(data.jobs.map(j => j.job_id));
       loadJobs();
     }
   } catch(e) {
-    document.getElementById('batch-status').textContent = 'Request failed: ' + e.message;
+    statusEl.textContent = 'Request failed: ' + e.message;
   } finally {
     btn.disabled = false;
   }
+}
+
+async function pollBatchJobs(jobIds) {
+  const statusEl = document.getElementById('batch-status');
+  for (let i = 0; i < 200; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const results = await Promise.all(jobIds.map(id => fetch(`${API}/jobs/${id}`).then(r => r.json())));
+    const done = results.filter(j => j.status === 'completed' || j.status === 'failed').length;
+    const failed = results.filter(j => j.status === 'failed').length;
+    statusEl.textContent = `Batch progress: ${done}/${jobIds.length} done` + (failed ? ` (${failed} failed)` : '');
+    loadJobs();
+    if (done === jobIds.length) {
+      statusEl.textContent += failed ? ' — check jobs table for errors.' : ' — all complete ✓';
+      return;
+    }
+  }
+  statusEl.textContent += ' (polling timed out — refresh jobs table)';
 }
 
 // ── Jobs table ───────────────────────────────────────────────────────────────

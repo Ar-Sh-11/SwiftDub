@@ -38,8 +38,9 @@ class Settings(BaseSettings):
     gpu_clear_cache_pct: float = 85.0
 
     # ── LatentSync ────────────────────────────────────────────────────────────
-    latentsync_repo: Path = ROOT / "models" / "repos" / "latentsync"
+    latentsync_vendor: Path = ROOT / "models" / "vendor" / "latentsync"
     latentsync_ckpt: Path = ROOT / "models" / "weights" / "latentsync" / "latentsync_unet.pt"
+    latentsync_whisper: Path = ROOT / "models" / "weights" / "latentsync" / "whisper" / "tiny.pt"
     latentsync_unet_config: str = "configs/unet/stage2.yaml"
     latentsync_inference_steps: int = 20
     latentsync_guidance_scale: float = 1.5
@@ -47,11 +48,19 @@ class Settings(BaseSettings):
     latentsync_enable_deepcache: bool = False
 
     # ── MuseTalk ──────────────────────────────────────────────────────────────
-    musetalk_repo: Path = ROOT / "models" / "repos" / "musetalk"
+    musetalk_vendor: Path = ROOT / "models" / "vendor" / "musetalk"
     musetalk_unet: Path = ROOT / "models" / "weights" / "musetalk" / "musetalkV15" / "unet.pth"
     musetalk_unet_config: Path = ROOT / "models" / "weights" / "musetalk" / "musetalkV15" / "musetalk.json"
-    musetalk_whisper_dir: Path = ROOT / "models" / "repos" / "musetalk" / "models" / "whisper"
+    musetalk_whisper_dir: Path = ROOT / "models" / "weights" / "musetalk" / "whisper"
+    musetalk_dwpose: Path = ROOT / "models" / "weights" / "musetalk" / "dwpose" / "dw-ll_ucoco_384.pth"
     musetalk_bbox_shift: int = 0
+    # Set MUSETALK_DISABLED=true (or musetalk.disabled in configs/models.yaml) to hide MuseTalk
+    musetalk_disabled: bool = False
+
+    def is_musetalk_disabled(self) -> bool:
+        if self.musetalk_disabled:
+            return True
+        return bool(self.model_configs.get("musetalk", {}).get("disabled", False))
 
     # ── Directory layout ─────────────────────────────────────────────────────
     data_dir: Path = ROOT / "data"
