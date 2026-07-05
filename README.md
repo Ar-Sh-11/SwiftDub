@@ -447,15 +447,6 @@ SwiftDub/
 ├── Dockerfile
 └── README.md
 ```
-
----
-
-## Legacy Code
-
-The `legacy/` folder preserves the original multi-model SwiftDub codebase (Wav2Lip, VideoReTalking, SadTalker, training pipeline, benchmarks). MuseTalk and LatentSync are now first-class in `src/`. Legacy code is **not loaded at runtime** and is excluded from Docker builds.
-
-To exclude from git on your next push, uncomment `# legacy/` in `.gitignore`.
-
 ---
 
 ## License
