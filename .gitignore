@@ -15,6 +15,7 @@ logs/
 # Model weights (download via scripts/download/models.py)
 models/weights/
 models/repos/
+models/vendor/
 
 # Keep directory structure
 !models/weights/.gitkeep
