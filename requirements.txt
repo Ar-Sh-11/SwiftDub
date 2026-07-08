@@ -1,63 +1,76 @@
 # SwiftDub — Production Requirements
-# Tested on Python 3.12 + CUDA 12.8 / PyTorch 2.8
+# ─────────────────────────────────────────────────────────────────────────────
+# Tested on: NVIDIA L4 (24 GB VRAM), CUDA 12.8, Python 3.12
+#
+# Install PyTorch BEFORE this file (matches CUDA 12.8):
+#   pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu128
+#
+# Then install the rest:
+#   pip install -r requirements.txt
 
 # ── Web API ──────────────────────────────────────────────────────────────────
-fastapi>=0.110
+fastapi>=0.110,<0.140
 uvicorn[standard]>=0.27
 python-multipart>=0.0.9
-pydantic>=2.0
+pydantic>=2.0,<3
 pydantic-settings>=2.2
 aiofiles>=23.0
 
-# ── Deep learning (GPU) — install torch separately with CUDA index ───────────
-# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-diffusers>=0.26
+# ── Deep learning (torch installed separately per instructions above) ─────────
+diffusers>=0.27.0
 transformers>=4.38
 accelerate>=0.27
 safetensors>=0.4
 einops>=0.7
 omegaconf>=2.3
 DeepCache>=0.1
+huggingface_hub>=0.21
 
 # ── Video / Audio ─────────────────────────────────────────────────────────────
-opencv-python>=4.9
+# NOTE: use opencv-python-headless in server/Docker environments (no GUI deps)
+opencv-python-headless>=4.9
 imageio>=2.31
-imageio-ffmpeg>=0.4         # bundled ffmpeg binary
-decord>=0.6.0               # fast video reading for LatentSync
+imageio-ffmpeg>=0.4
+decord>=0.6.0
 soundfile>=0.12
 librosa>=0.10.1
 ffmpeg-python>=0.2.0
 scipy>=1.11
+numpy>=1.24,<2.0
+pillow>=10.0
 
-# ── LatentSync model specific ─────────────────────────────────────────────────
+# ── LatentSync exact inference stack ──────────────────────────────────────────
+# These versions were validated on L4 / CUDA 12.8 / torch 2.8.0
 kornia>=0.7.0
 mediapipe>=0.10.0
 python_speech_features>=0.6
 scenedetect>=0.6.1
 insightface>=0.7
-onnxruntime-gpu>=1.16        # GPU onnx; use onnxruntime on CPU-only
-
-# ── Numerical ─────────────────────────────────────────────────────────────────
-numpy>=1.24,<2.0
-pillow>=10.0
+onnxruntime-gpu>=1.16          # must match CUDA (onnxruntime-gpu 1.27 works with CUDA 12.8)
 scikit-image>=0.21
 
 # ── Async job processing ──────────────────────────────────────────────────────
 celery[redis]>=5.3
 flower>=2.0
 
-# ── Database (MongoDB) ────────────────────────────────────────────────────────
-motor>=3.3              # async MongoDB driver (graceful fallback to in-memory)
+# ── Database (MongoDB async) ──────────────────────────────────────────────────
+motor>=3.3
+pymongo>=4.6
+redis>=4.0
 
 # ── Metrics & logging ─────────────────────────────────────────────────────────
 prometheus-client>=0.20
 loguru>=0.7
+psutil>=5.9
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 tqdm>=4.66
 rich>=13.0
 PyYAML>=6.0
-huggingface_hub>=0.21
 requests>=2.31
 httpx>=0.27
 python-dotenv>=1.0
+
+# ── Tests (dev / CI only) ─────────────────────────────────────────────────────
+pytest>=8.0
+pytest-asyncio>=0.23

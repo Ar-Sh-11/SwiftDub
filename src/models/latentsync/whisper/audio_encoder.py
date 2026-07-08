@@ -14,19 +14,8 @@ import torch
 
 def _load_whisper(model_path: str, device: str | None = None):
     """Load the Whisper model from a .pt checkpoint using the bundled loader."""
-    # Import from the whisper subpackage bundled with LatentSync (in vendor)
-    # or use the openai-whisper package if installed.
-    try:
-        from openai_whisper import load_model as _load  # type: ignore[import]
-        return _load(model_path, device=device)
-    except ImportError:
-        pass
-    # Fall back: add vendor whisper to path if available
-    import sys
-    _vendor_ws = Path(__file__).resolve().parent.parent.parent.parent.parent / "models" / "vendor" / "latentsync" / "latentsync" / "whisper"
-    if _vendor_ws.exists() and str(_vendor_ws) not in sys.path:
-        sys.path.insert(0, str(_vendor_ws.parent.parent))
-    from latentsync.whisper.whisper import load_model  # type: ignore[import]
+    from src.models.latentsync.whisper.whisper import load_model
+
     return load_model(model_path, device=device)
 
 

@@ -5,7 +5,6 @@ Adapted from ByteDance/LatentSync (Apache 2.0).
 from __future__ import annotations
 
 import os
-import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -19,17 +18,26 @@ from decord import AudioReader, VideoReader
 from loguru import logger
 
 
+def _ffmpeg_exe() -> str:
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
+
+
 def read_video(video_path: str, change_fps: bool = True, use_decord: bool = True) -> np.ndarray:
     """Read video frames; optionally re-encode to 25 FPS first."""
     if change_fps:
         temp_dir = Path(video_path).parent / "_tmp_fps"
         temp_dir.mkdir(parents=True, exist_ok=True)
         out = temp_dir / "video.mp4"
-        cmd = (
-            f"ffmpeg -loglevel error -y -nostdin -i {shlex.quote(video_path)} "
-            f"-r 25 -crf 18 {shlex.quote(str(out))}"
-        )
-        subprocess.run(cmd, shell=True, check=False)
+        ffmpeg = _ffmpeg_exe()
+        cmd = [
+            ffmpeg, "-loglevel", "error", "-y", "-nostdin",
+            "-i", video_path, "-r", "25", "-crf", "18", str(out),
+        ]
+        subprocess.run(cmd, check=False)
         target = str(out)
     else:
         target = video_path
@@ -86,13 +94,13 @@ def write_video(output_path: str, frames: np.ndarray, fps: int = 25) -> None:
 
 
 def mux_audio_video(video_path: str, audio_path: str, output_path: str) -> None:
-    cmd = (
-        f"ffmpeg -y -loglevel error -nostdin "
-        f"-i {shlex.quote(video_path)} "
-        f"-i {shlex.quote(audio_path)} "
-        f"-c:v libx264 -crf 18 -c:a aac -q:v 0 -q:a 0 "
-        f"{shlex.quote(output_path)}"
-    )
-    ret = subprocess.run(cmd, shell=True)
+    ffmpeg = _ffmpeg_exe()
+    cmd = [
+        ffmpeg, "-y", "-loglevel", "error", "-nostdin",
+        "-i", video_path, "-i", audio_path,
+        "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-q:v", "0", "-q:a", "0",
+        output_path,
+    ]
+    ret = subprocess.run(cmd)
     if ret.returncode != 0:
         raise RuntimeError(f"ffmpeg mux failed for {output_path}")

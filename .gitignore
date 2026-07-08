@@ -11,12 +11,12 @@ data/outputs/
 data/temp/
 logs/
 
-# Model weights (download via scripts/download/models.py)
-/models/
+# Model weights (download via scripts/download/models.py or mount in Docker)
+models/weights/
 
 # Keep directory structure
-!/models/weights/.gitkeep
 !data/samples/.gitkeep
+
 # IDE / OS
 .idea/
 .vscode/

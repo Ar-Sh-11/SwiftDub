@@ -14,9 +14,6 @@ from pathlib import Path
 from loguru import logger
 
 from src.config import settings
-from src.utils.gpu_alloc import GPUAllocator
-
-_gpu_alloc = GPUAllocator()
 
 
 def _base_env() -> dict[str, str]:
@@ -31,11 +28,14 @@ def _base_env() -> dict[str, str]:
     root = str(settings.root_dir)
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = root + (os.pathsep + existing if existing else "")
+    # InsightFace buffalo_l models (face detection)
+    if settings.insightface_root.exists():
+        env["INSIGHTFACE_HOME"] = str(settings.insightface_root)
     return env
 
 
 def is_ready() -> bool:
-    """Return True when weights are present (vendor no longer required)."""
+    """Return True when weights and configs are present."""
     return (
         settings.latentsync_ckpt.exists()
         and settings.latentsync_whisper.exists()
@@ -73,37 +73,35 @@ def run_latentsync(
     td = temp_dir or (settings.temp_dir / f"ls_{output_path.stem}")
     td.mkdir(parents=True, exist_ok=True)
 
-    selected_gpu = gpu_id if gpu_id is not None else _gpu_alloc.acquire()
-    try:
-        cmd = [
-            sys.executable, "-m", "src.models.latentsync.infer",
-            "--unet_config_path", str(settings.latentsync_unet_config_path),
-            "--inference_ckpt_path", str(settings.latentsync_ckpt),
-            "--whisper_model_path", str(settings.latentsync_whisper),
-            "--video_path", str(video_path.resolve()),
-            "--audio_path", str(audio_path.resolve()),
-            "--video_out_path", str(output_path),
-            "--inference_steps", str(steps),
-            "--guidance_scale", str(scale),
-            "--seed", str(rng),
-            "--temp_dir", str(td),
-            "--gpu_id", str(selected_gpu),
-        ]
-        if dcache:
-            cmd.append("--enable_deepcache")
+    selected_gpu = gpu_id if gpu_id is not None else settings.gpu_id_list()[0]
 
-        logger.debug("LatentSync cmd: {}", " ".join(cmd))
-        t0 = time.time()
-        result = subprocess.run(
-            cmd,
-            cwd=str(settings.root_dir),
-            env=_base_env(),
-            capture_output=True,
-            text=True,
-        )
-        elapsed = time.time() - t0
-    finally:
-        _gpu_alloc.release(selected_gpu)
+    cmd = [
+        sys.executable, "-m", "src.models.latentsync.infer",
+        "--unet_config_path", str(settings.latentsync_unet_config_path),
+        "--inference_ckpt_path", str(settings.latentsync_ckpt),
+        "--whisper_model_path", str(settings.latentsync_whisper),
+        "--video_path", str(video_path.resolve()),
+        "--audio_path", str(audio_path.resolve()),
+        "--video_out_path", str(output_path),
+        "--inference_steps", str(steps),
+        "--guidance_scale", str(scale),
+        "--seed", str(rng),
+        "--temp_dir", str(td),
+        "--gpu_id", str(selected_gpu),
+    ]
+    if dcache:
+        cmd.append("--enable_deepcache")
+
+    logger.debug("LatentSync cmd: {}", " ".join(cmd))
+    t0 = time.time()
+    result = subprocess.run(
+        cmd,
+        cwd=str(settings.root_dir),
+        env=_base_env(),
+        capture_output=True,
+        text=True,
+    )
+    elapsed = time.time() - t0
 
     if result.returncode != 0:
         stderr = result.stderr[-2000:] if result.stderr else ""

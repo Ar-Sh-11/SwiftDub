@@ -20,22 +20,8 @@ if str(_ROOT) not in sys.path:
 
 
 def _build_unet(config, ckpt_path: str, dtype, device: str = "cpu"):
-    """Load UNet3DConditionModel from checkpoint.
-
-    Tries our own src/models/latentsync/models/unet.py first, then falls back
-    to the vendor snapshot if present (provides a clear migration path when the
-    vendor directory is removed).
-    """
-    # Primary: use our first-party model code
-    try:
-        from src.models.latentsync.models.unet import UNet3DConditionModel
-    except ImportError:
-        # Fallback: vendor snapshot still present on disk
-        vendor = _ROOT / "models" / "vendor" / "latentsync"
-        if vendor.exists() and str(vendor) not in sys.path:
-            sys.path.insert(0, str(vendor))
-        from latentsync.models.unet import UNet3DConditionModel  # type: ignore[import]
-
+    """Load UNet3DConditionModel from checkpoint."""
+    from src.models.latentsync.models.unet import UNet3DConditionModel
     from omegaconf import OmegaConf
     unet, _ = UNet3DConditionModel.from_pretrained(
         OmegaConf.to_container(config.model), ckpt_path, device="cpu"
@@ -43,7 +29,18 @@ def _build_unet(config, ckpt_path: str, dtype, device: str = "cpu"):
     return unet.to(dtype=dtype)
 
 
+def _ensure_ffmpeg_on_path() -> None:
+    """Whisper and media helpers need ffmpeg on PATH (use bundled binary)."""
+    try:
+        import imageio_ffmpeg
+        ffdir = str(Path(imageio_ffmpeg.get_ffmpeg_exe()).parent)
+        os.environ["PATH"] = ffdir + os.pathsep + os.environ.get("PATH", "")
+    except Exception:
+        pass
+
+
 def main() -> None:
+    _ensure_ffmpeg_on_path()
     parser = argparse.ArgumentParser(description="SwiftDub LatentSync 1.5 inference")
     parser.add_argument("--unet_config_path", required=True, help="Path to stage2.yaml config")
     parser.add_argument("--inference_ckpt_path", required=True, help="Path to latentsync_unet.pt")

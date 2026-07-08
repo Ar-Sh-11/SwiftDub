@@ -12,6 +12,11 @@ import numpy as np
 import pytest
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "integration: live server integration tests")
+    config.addinivalue_line("markers", "gpu: requires GPU inference (set RUN_GPU_TESTS=1)")
+
+
 # ── Disable external services for unit tests ─────────────────────────────────
 os.environ.setdefault("DISABLE_DB", "true")
 os.environ.setdefault("DISABLE_CACHE", "true")

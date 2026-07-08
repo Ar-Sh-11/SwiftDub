@@ -124,12 +124,29 @@ class LipsyncPipeline(DiffusionPipeline):
 
     def _affine_transform_video(self, frames: np.ndarray):
         faces, boxes, matrices = [], [], []
+        last_good: tuple[torch.Tensor, list, np.ndarray] | None = None
+        carried = 0
         logger.info("Affine-transforming {} frames...", len(frames))
         for frame in tqdm.tqdm(frames):
-            face, box, matrix = self.image_processor.affine_transform(frame)
+            try:
+                result = self.image_processor.affine_transform(frame)
+            except RuntimeError as exc:
+                if "No face detected" not in str(exc) or last_good is None:
+                    raise
+                result = last_good
+                carried += 1
+            else:
+                last_good = result
+            face, box, matrix = result
             faces.append(face)
             boxes.append(box)
             matrices.append(matrix)
+        if carried:
+            logger.warning(
+                "Face carry-forward used on {} / {} frames (intermittent detection misses)",
+                carried,
+                len(frames),
+            )
         return torch.stack(faces), boxes, matrices
 
     def _restore_video(self, faces, video_frames, boxes, matrices):
@@ -218,6 +235,20 @@ class LipsyncPipeline(DiffusionPipeline):
         whisper_chunks = self.audio_encoder.feature2chunks(whisper_feat, fps=video_fps)
         audio_samples = read_audio(audio_path, audio_sample_rate)
         video_frames = read_video(video_path, use_decord=False)
+
+        hits, sampled = self.image_processor.probe_faces(video_frames)
+        if hits == 0:
+            raise RuntimeError(
+                "No face detected in video. Ensure the speaker's face is visible, "
+                "front-facing, and well-lit throughout the clip."
+            )
+        if hits < sampled:
+            logger.warning(
+                "Face detected in {}/{} sampled frames — intermittent misses will use carry-forward",
+                hits,
+                sampled,
+            )
+
         video_frames, faces, boxes, matrices = self._loop_video(whisper_chunks, video_frames)
 
         n_latent_ch = self.vae.config.latent_channels

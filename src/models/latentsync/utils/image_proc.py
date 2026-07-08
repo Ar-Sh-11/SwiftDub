@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 import torch
 from einops import rearrange
+from loguru import logger
 from torchvision import transforms
 
 from .affine import AlignRestore
@@ -37,6 +38,7 @@ class FaceDetector:
         import insightface
         from insightface.app import FaceAnalysis
 
+        self._det_size = det_size
         self.app = FaceAnalysis(
             name="buffalo_l",
             providers=["CUDAExecutionProvider"] if "cuda" in device else ["CPUExecutionProvider"],
@@ -45,13 +47,31 @@ class FaceDetector:
 
     def __call__(self, image: np.ndarray):
         """Return (bbox, landmark_2d_106) or (None, None) if no face found."""
-        faces = self.app.get(image)
+        faces = self._detect(image)
         if not faces:
             return None, None
-        face = faces[0]
-        bbox = face.bbox  # [x1, y1, x2, y2]
-        kps = face.landmark_2d_106  # shape (106, 2)
-        return bbox, kps
+        face = max(
+            faces,
+            key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
+        )
+        return face.bbox, face.landmark_2d_106
+
+    def _detect(self, image: np.ndarray):
+        faces = self.app.get(image)
+        if faces:
+            return faces
+
+        # Upscale small / distant faces and retry once.
+        h, w = image.shape[:2]
+        if min(h, w) >= 720:
+            return []
+        scale = 720 / min(h, w)
+        enlarged = cv2.resize(
+            image,
+            (int(w * scale), int(h * scale)),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        return self.app.get(enlarged)
 
 
 class ImageProcessor:
@@ -64,6 +84,7 @@ class ImageProcessor:
         mask_image: torch.Tensor | None = None,
     ) -> None:
         self.resolution = resolution
+        self.device = device
         self.resize = transforms.Resize(
             (resolution, resolution),
             interpolation=transforms.InterpolationMode.BICUBIC,
@@ -81,11 +102,13 @@ class ImageProcessor:
         if device != "cpu":
             self.face_detector = FaceDetector(device=device)
 
-    def affine_transform(self, image: np.ndarray):
+    def affine_transform(self, image: np.ndarray, *, allow_missing: bool = False):
         if self.face_detector is None:
             raise NotImplementedError("Face detection requires a CUDA device")
         bbox, kps = self.face_detector(image)
         if bbox is None:
+            if allow_missing:
+                return None
             raise RuntimeError("No face detected in frame")
 
         pt_left_eye = np.mean(kps[[43, 48, 49, 51, 50]], axis=0)
@@ -100,6 +123,14 @@ class ImageProcessor:
         face = cv2.resize(face, (self.resolution, self.resolution), interpolation=cv2.INTER_LANCZOS4)
         face_t = rearrange(torch.from_numpy(face), "h w c -> c h w")
         return face_t, box, affine_matrix
+
+    def probe_faces(self, frames: np.ndarray, sample: int = 8) -> tuple[int, int]:
+        """Return (frames_with_face, frames_sampled) for pre-flight validation."""
+        if self.face_detector is None or len(frames) == 0:
+            return 0, 0
+        idxs = np.linspace(0, len(frames) - 1, num=min(sample, len(frames)), dtype=int)
+        hits = sum(1 for i in idxs if self.face_detector(frames[i])[0] is not None)
+        return hits, len(idxs)
 
     def preprocess_fixed_mask_image(
         self, image: torch.Tensor, affine_transform: bool = False

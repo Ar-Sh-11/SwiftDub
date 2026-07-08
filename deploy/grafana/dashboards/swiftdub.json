@@ -3,7 +3,7 @@
   "uid": "swiftdub-main",
   "schemaVersion": 36,
   "refresh": "10s",
-  "timezone": "browser",
+  "timezone": "Asia/Kolkata",
   "panels": [
     {
       "id": 1, "type": "stat", "title": "Total Requests",

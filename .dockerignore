@@ -17,8 +17,11 @@ data/temp/
 logs/
 output/
 
-# Model weights downloaded at runtime
+# Model weights mounted at runtime (not baked into image)
 models/weights/
 
-# Local env
-#.env
+# Vendor code not needed in image
+models/vendor/
+
+# Local env (image uses .env.example baked as .env)
+.env

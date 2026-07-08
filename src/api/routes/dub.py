@@ -231,13 +231,14 @@ async def dub_single(
         if cached:
             logger.info("[{}] Cache hit for {}", job_id, model_str)
             await create_job(job_id, model=model_str)
-            await update_job(job_id, status=JobStatus.COMPLETED, output_video=cached)
+            await update_job(job_id, status=JobStatus.COMPLETED, output_video=cached, elapsed_s=0.0)
             return DubResponse(
                 job_id=job_id,
                 status=JobStatus.COMPLETED.value,
                 model=model_str,
                 output_video=cached,
                 download_url=_download_url(job_id),
+                elapsed_s=0.0,
             )
 
     await create_job(

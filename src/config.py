@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     # Comma-separated CUDA device IDs; empty = auto-detect
     gpu_ids: str = ""
     # Default total VRAM per GPU when CUDA is unavailable (CPU-mode simulation)
-    gpu_vram_default_gb: float = 24.0
-    # Per-model VRAM estimates (GB) used by dynamic allocator
+    gpu_vram_default_gb: float = 23.0
+    # Per-model VRAM estimates (GB) used by dynamic allocator — tuned for L4 (23 GB)
     latentsync_vram_gb: float = 10.0
     musetalk_vram_gb: float = 7.0
 
@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     # Weight paths (loaded from models/weights/ only — no vendor dependency)
     latentsync_ckpt: Path = ROOT / "models" / "weights" / "latentsync" / "latentsync_unet.pt"
     latentsync_whisper: Path = ROOT / "models" / "weights" / "latentsync" / "whisper" / "tiny.pt"
+    # InsightFace buffalo_l ONNX models for face detection
+    insightface_root: Path = ROOT / "models" / "weights" / "latentsync" / "insightface"
     # UNet config YAML — shipped with weights or kept in configs/
     latentsync_unet_config: str = "configs/unet/stage2.yaml"
     latentsync_inference_steps: int = 20

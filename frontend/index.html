@@ -1,1060 +1,1040 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SwiftDub — AI Video Dubbing</title>
 <style>
-/* ── Reset & base ─────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0f1117;--surface:#1a1d27;--surface2:#232636;--border:#2e3148;
-  --accent:#5b6ef5;--accent2:#7c8cf8;--success:#22c55e;--warn:#f59e0b;
-  --danger:#ef4444;--text:#e2e6f0;--muted:#7a80a0;--radius:8px;
-  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --bg:#0f1117;--surf:#1a1d27;--surf2:#232636;--bord:#2e3148;
+  --accent:#5b6ef5;--accent2:#7c8cf8;--ok:#22c55e;--warn:#f59e0b;
+  --err:#ef4444;--txt:#e2e6f0;--muted:#7a80a0;--r:8px;
 }
-html{font-size:14px;scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+html{font-size:14px}
+body{background:var(--bg);color:var(--txt);font-family:system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
 
-/* ── Layout ───────────────────────────────────────────────── */
+/* layout */
 .app{display:flex;flex-direction:column;min-height:100vh}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
-header .logo{font-size:1.3rem;font-weight:700;color:var(--accent2);letter-spacing:-.5px}
-header .logo span{color:var(--text)}
-header .badge{background:var(--accent);color:#fff;font-size:.7rem;padding:2px 8px;border-radius:20px;margin-left:4px}
-header nav{margin-left:auto;display:flex;gap:4px}
-header nav a{color:var(--muted);text-decoration:none;padding:6px 14px;border-radius:6px;font-size:.85rem;transition:.15s}
-header nav a:hover,header nav a.active{background:var(--surface2);color:var(--text)}
+header{background:var(--surf);border-bottom:1px solid var(--bord);padding:0 20px;height:52px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:1.25rem;font-weight:700;color:var(--accent2)}.logo span{color:var(--txt)}
+.ver{background:var(--accent);color:#fff;font-size:.65rem;padding:2px 7px;border-radius:20px;margin-left:4px}
+nav{margin-left:auto;display:flex;gap:4px}
+nav button{background:none;border:none;color:var(--muted);cursor:pointer;padding:6px 14px;border-radius:6px;font-size:.85rem;font-weight:500;transition:.15s}
+nav button:hover,nav button.active{background:var(--surf2);color:var(--txt)}
+nav button.active{background:var(--accent);color:#fff}
+nav a{color:var(--muted);text-decoration:none;padding:6px 14px;border-radius:6px;font-size:.85rem;font-weight:500}
+nav a:hover{background:var(--surf2);color:var(--txt)}
 
-.main{display:grid;grid-template-columns:1fr 320px;gap:0;flex:1}
-.content{padding:24px;overflow-y:auto;max-height:calc(100vh - 56px)}
-.sidebar{background:var(--surface);border-left:1px solid var(--border);padding:20px;overflow-y:auto;max-height:calc(100vh - 56px)}
+.wrap{display:grid;grid-template-columns:1fr 300px;flex:1;min-height:0}
+.main{padding:20px;overflow-y:auto;max-height:calc(100vh - 52px)}
+.side{background:var(--surf);border-left:1px solid var(--bord);padding:16px;overflow-y:auto;max-height:calc(100vh - 52px)}
 
-/* ── Cards ────────────────────────────────────────────────── */
-.card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
-.card-title{font-size:.95rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.card-title svg{opacity:.6}
+/* metrics row */
+.mrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.met{background:var(--surf2);border:1px solid var(--bord);border-radius:8px;padding:8px 12px;flex:1;min-width:90px}
+.met-l{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.met-v{font-size:1rem;font-weight:700}.green{color:var(--ok)}.yellow{color:var(--warn)}.red{color:var(--err)}
 
-/* ── Tabs ─────────────────────────────────────────────────── */
-.tabs{display:flex;gap:2px;background:var(--surface);padding:4px;border-radius:10px;margin-bottom:20px}
-.tab{flex:1;padding:8px 16px;border:none;background:none;color:var(--muted);cursor:pointer;border-radius:8px;font-size:.85rem;font-weight:500;transition:.15s;text-align:center}
+/* tabs */
+.tabs{display:flex;gap:2px;background:var(--surf);padding:4px;border-radius:10px;margin-bottom:16px}
+.tab{flex:1;padding:8px;border:none;background:none;color:var(--muted);cursor:pointer;border-radius:8px;font-size:.82rem;font-weight:500;transition:.15s}
 .tab.active{background:var(--accent);color:#fff}
-.tab:hover:not(.active){background:var(--surface2);color:var(--text)}
-.tab-panel{display:none}.tab-panel.active{display:block}
+.tab:hover:not(.active){background:var(--surf2);color:var(--txt)}
+.panel{display:none}.panel.active{display:block}
 
-/* ── Form elements ────────────────────────────────────────── */
-.form-row{margin-bottom:14px}
-label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:5px;font-weight:500}
-input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:.85rem;outline:none;transition:.15s}
+/* section */
+.section{display:none}.section.active{display:block}
+
+/* card */
+.card{background:var(--surf2);border:1px solid var(--bord);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.card-h{font-size:.9rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* form */
+.frow{margin-bottom:12px}
+label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px;font-weight:500}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--txt);padding:7px 10px;border-radius:6px;font-size:.82rem;outline:none;transition:.15s}
 input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(91,110,245,.2)}
-input[type=range]{padding:0;cursor:pointer;accent-color:var(--accent)}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+input[type=range]{width:100%;padding:0;cursor:pointer;accent-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.hint{font-size:.72rem;color:var(--muted);margin-top:3px}
 
-/* ── Drop zone ───────────────────────────────────────────── */
-.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:28px 20px;text-align:center;cursor:pointer;transition:.2s;position:relative}
-.dropzone:hover,.dropzone.over{border-color:var(--accent);background:rgba(91,110,245,.06)}
-.dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.dropzone .dz-icon{font-size:1.8rem;margin-bottom:6px;opacity:.5}
-.dropzone .dz-text{color:var(--muted);font-size:.8rem}
-.dropzone .dz-text strong{color:var(--accent2)}
-.dropzone.has-file{border-color:var(--success);background:rgba(34,197,94,.05)}
-.dropzone.has-file .dz-text{color:var(--success)}
+/* dropzone */
+.dz{border:2px dashed var(--bord);border-radius:var(--r);padding:24px 16px;text-align:center;cursor:pointer;transition:.2s;position:relative;overflow:hidden}
+.dz:hover,.dz.over{border-color:var(--accent);background:rgba(91,110,245,.06)}
+.dz.has-file{border-color:var(--ok);background:rgba(34,197,94,.04)}
+.dz input[type=file]{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.dz-icon{font-size:1.6rem;margin-bottom:4px;pointer-events:none}
+.dz-txt{color:var(--muted);font-size:.78rem;pointer-events:none}
+.dz-txt strong{color:var(--accent2)}
+.dz-name{font-size:.72rem;color:var(--ok);margin-top:4px;pointer-events:none}
 
-/* ── Buttons ─────────────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.15s;text-decoration:none}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent2)}
-.btn-sm{padding:5px 12px;font-size:.78rem}
-.btn-ghost{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
-.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
-.btn-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
-.btn-success{background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.3)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600;transition:.15s;text-decoration:none}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent2)}
+.btn-g{background:var(--surf);color:var(--muted);border:1px solid var(--bord)}.btn-g:hover{color:var(--txt);border-color:var(--accent)}
+.btn-ok{background:rgba(34,197,94,.15);color:var(--ok);border:1px solid rgba(34,197,94,.3)}
+.btn-err{background:rgba(239,68,68,.12);color:var(--err);border:1px solid rgba(239,68,68,.3)}
+.btn-sm{padding:4px 10px;font-size:.74rem}
 .btn-full{width:100%;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 
-/* ── Badge / Status ──────────────────────────────────────── */
-.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600}
-.badge-queued{background:rgba(245,158,11,.15);color:var(--warn)}
-.badge-processing{background:rgba(91,110,245,.15);color:var(--accent2)}
-.badge-completed{background:rgba(34,197,94,.15);color:var(--success)}
-.badge-failed{background:rgba(239,68,68,.15);color:var(--danger)}
+/* badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600}
+.b-queued{background:rgba(245,158,11,.15);color:var(--warn)}
+.b-processing{background:rgba(91,110,245,.15);color:var(--accent2)}
+.b-completed{background:rgba(34,197,94,.15);color:var(--ok)}
+.b-failed{background:rgba(239,68,68,.15);color:var(--err)}
 
-/* ── GPU panel ───────────────────────────────────────────── */
-.gpu-card{margin-bottom:12px}
-.gpu-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.gpu-name{font-size:.8rem;font-weight:600;color:var(--text)}
-.gpu-pct{font-size:.75rem;color:var(--muted)}
-.gpu-bar-wrap{height:18px;background:var(--surface);border-radius:4px;overflow:hidden;display:flex;margin-bottom:4px}
-.gpu-seg{height:100%;transition:width .4s ease}
-.seg-overhead{background:rgba(107,114,128,.45)}
-.seg-active{background:var(--accent)}
-.seg-free{background:rgba(34,197,94,.25)}
-.gpu-legend{display:flex;gap:10px;flex-wrap:wrap}
-.gpu-legend-item{display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--muted)}
-.gpu-legend-dot{width:8px;height:8px;border-radius:2px}
-.gpu-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
-.gpu-stat{background:var(--surface);border-radius:6px;padding:6px 10px}
-.gpu-stat-label{font-size:.68rem;color:var(--muted)}
-.gpu-stat-val{font-size:.9rem;font-weight:700;color:var(--text)}
-.gpu-jobs-list{margin-top:8px;font-size:.72rem;color:var(--muted)}
-.section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
+/* toggle */
+.trow{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+.trow-label{font-size:.8rem;color:var(--txt)}
+.sw{position:relative;display:inline-block;width:32px;height:17px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0}
+.sl{position:absolute;cursor:pointer;inset:0;background:var(--bord);border-radius:8px;transition:.2s}
+.sl::before{position:absolute;content:'';height:11px;width:11px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.sw input:checked+.sl{background:var(--accent)}
+.sw input:checked+.sl::before{transform:translateX(15px)}
 
-/* ── Metric chips ────────────────────────────────────────── */
-.metrics-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.metric{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;flex:1;min-width:100px}
-.metric-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.metric-val{font-size:1.1rem;font-weight:700;color:var(--text)}
-.metric-val.green{color:var(--success)}
-.metric-val.yellow{color:var(--warn)}
-.metric-val.red{color:var(--danger)}
+/* GPU bar */
+.gpu-bar{height:16px;background:var(--surf);border-radius:4px;overflow:hidden;display:flex;margin:6px 0}
+.gpu-seg{height:100%;transition:width .4s}
+.gs-ovh{background:rgba(107,114,128,.45)}
+.gs-act{background:var(--accent)}
+.gs-free{background:rgba(34,197,94,.25)}
+.gpu-stats{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
+.gpu-stat{background:var(--surf);border-radius:5px;padding:5px 8px}
+.gs-l{font-size:.65rem;color:var(--muted)}
+.gs-v{font-size:.85rem;font-weight:700}
 
-/* ── Jobs table ──────────────────────────────────────────── */
-.table-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
-.table-toolbar input{max-width:220px}
-.table-toolbar select{max-width:140px}
-.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
-table{width:100%;border-collapse:collapse;font-size:.8rem}
-th{background:var(--surface);color:var(--muted);font-weight:600;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
-th:hover{color:var(--text)}
-th .sort-arrow{opacity:.4;margin-left:4px}
-th.sorted .sort-arrow{opacity:1;color:var(--accent)}
-td{padding:9px 12px;border-bottom:1px solid rgba(46,49,72,.5);vertical-align:middle}
+/* result */
+.result{background:var(--surf);border:1px solid var(--bord);border-radius:var(--r);padding:12px;margin-top:12px;display:none}
+.result.show{display:block}
+.pbar-wrap{height:5px;background:var(--bord);border-radius:3px;overflow:hidden;margin:8px 0}
+.pbar{height:100%;width:0;background:var(--accent);border-radius:3px}
+.pbar.anim{animation:pbar-anim 1.4s infinite linear}
+@keyframes pbar-anim{0%{width:30%;margin-left:-30%}100%{width:30%;margin-left:100%}}
+
+/* jobs table */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.toolbar input,
+.toolbar select{max-width:160px}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--bord);border-radius:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{background:var(--surf);color:var(--muted);font-weight:600;padding:9px 10px;text-align:left;border-bottom:1px solid var(--bord);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--txt)}
+td{padding:8px 10px;border-bottom:1px solid rgba(46,49,72,.4);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,.02)}
-.job-id-cell{font-family:monospace;font-size:.72rem;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.video-name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
-.elapsed{font-variant-numeric:tabular-nums;color:var(--muted)}
+tr:hover td{background:rgba(255,255,255,.015)}
+.jid{font-family:monospace;font-size:.7rem;color:var(--muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vname{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ── Pagination ──────────────────────────────────────────── */
-.pagination{display:flex;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap}
-.page-btn{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-size:.8rem;transition:.15s;min-width:34px;text-align:center}
-.page-btn:hover{border-color:var(--accent);color:var(--text)}
-.page-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.page-btn:disabled{opacity:.4;cursor:not-allowed}
-.page-info{color:var(--muted);font-size:.8rem;white-space:nowrap}
-.page-jump{display:flex;align-items:center;gap:6px;margin-left:auto}
-.page-jump input{width:56px;text-align:center}
-.per-page-select{margin-left:8px;max-width:80px}
+/* pagination */
+.pgn{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.pb{padding:4px 9px;border-radius:5px;border:1px solid var(--bord);background:var(--surf);color:var(--muted);cursor:pointer;font-size:.78rem;min-width:30px;text-align:center;transition:.15s}
+.pb:hover{border-color:var(--accent);color:var(--txt)}
+.pb.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pb:disabled{opacity:.4;cursor:not-allowed}
+.p-info{color:var(--muted);font-size:.78rem}
 
-/* ── Batch table ─────────────────────────────────────────── */
-.batch-row{display:grid;grid-template-columns:28px 1fr 1fr auto;gap:8px;align-items:center;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;font-size:.8rem}
-.batch-idx{color:var(--muted);text-align:center;font-weight:600}
-.dc-check{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--muted);font-size:.78rem;white-space:nowrap}
-.dc-check input{width:auto;cursor:pointer}
+/* section title in sidebar */
+.st{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 8px}
+.st:first-child{margin-top:0}
 
-/* ── Progress/result ─────────────────────────────────────── */
-.result-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:14px;display:none}
-.result-box.visible{display:block}
-.progress-bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:10px 0}
-.progress-bar{height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width .4s}
-.progress-bar.indeterminate{animation:indeterminate 1.6s infinite linear}
-@keyframes indeterminate{0%{width:30%;margin-left:-30%}100%{width:30%;margin-left:100%}}
+/* batch pair row */
+.bpair{display:grid;grid-template-columns:24px 1fr 1fr auto;gap:6px;align-items:center;padding:7px;background:var(--surf);border:1px solid var(--bord);border-radius:5px;margin-bottom:5px;font-size:.78rem}
+.bpair-idx{color:var(--muted);text-align:center;font-weight:600}
+.tr{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ── Toast ───────────────────────────────────────────────── */
-#toasts{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:320px}
-.toast{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:.82rem;box-shadow:var(--shadow);animation:slide-in .2s ease;display:flex;gap:10px;align-items:flex-start}
-.toast.success{border-color:rgba(34,197,94,.4)}
-.toast.error{border-color:rgba(239,68,68,.4)}
-.toast-body{flex:1}
-.toast-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:0}
-@keyframes slide-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+/* toast */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:6px;width:300px}
+.toast{background:var(--surf2);border:1px solid var(--bord);border-radius:7px;padding:10px 14px;font-size:.8rem;display:flex;gap:8px;align-items:flex-start;animation:tin .18s ease}
+.toast.ok{border-color:rgba(34,197,94,.4)}
+.toast.er{border-color:rgba(239,68,68,.4)}
+.toast-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:0;flex-shrink:0}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
 
-/* ── Spinner ─────────────────────────────────────────────── */
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* spinner */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
 
-/* ── Misc ────────────────────────────────────────────────── */
-.flex{display:flex;align-items:center}.gap-8{gap:8px}
-.empty-state{text-align:center;padding:32px;color:var(--muted);font-size:.85rem}
-.mono{font-family:monospace;font-size:.78rem}
-.truncate{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.text-muted{color:var(--muted)}
-.text-sm{font-size:.78rem}
-details summary{cursor:pointer;color:var(--muted);font-size:.78rem;margin-top:4px}
-details summary:hover{color:var(--text)}
-.advanced{padding:12px;background:var(--surface);border-radius:6px;margin-top:8px;border:1px solid var(--border)}
-.switch{position:relative;display:inline-block;width:34px;height:18px}
-.switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:9px;transition:.2s}
-.slider::before{position:absolute;content:'';height:12px;width:12px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
-.switch input:checked+.slider{background:var(--accent)}
-.switch input:checked+.slider::before{transform:translateX(16px)}
-.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
-.toggle-label{font-size:.82rem;color:var(--text)}
+/* advanced details */
+details summary{cursor:pointer;color:var(--muted);font-size:.76rem;margin:8px 0 4px}
+.adv{padding:10px;background:var(--surf);border-radius:5px;border:1px solid var(--bord);margin-top:4px}
+.empty{text-align:center;padding:28px;color:var(--muted);font-size:.82rem}
+.mono{font-family:monospace;font-size:.74rem}
+.obs-link{display:flex;flex-direction:column;gap:5px}
+.obs-link a{color:var(--muted);text-decoration:none;font-size:.78rem;padding:5px 8px;border-radius:5px;border:1px solid var(--bord);background:var(--surf2);display:flex;align-items:center;gap:6px}
+.obs-link a:hover{color:var(--txt);border-color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="app">
 
-<!-- ── Header ───────────────────────────────────────────── -->
 <header>
-  <div class="logo">Swift<span>Dub</span> <span class="badge">v2.1</span></div>
+  <div class="logo">Swift<span>Dub</span><span class="ver">v2.1</span></div>
   <nav>
-    <a href="#" class="active" onclick="showSection('dub',this)">Dub</a>
-    <a href="#" onclick="showSection('jobs',this)">Jobs</a>
+    <button id="nav-dub" class="active" onclick="showSection('dub')">Dub</button>
+    <button id="nav-jobs" onclick="showSection('jobs')">Jobs</button>
     <a href="/docs" target="_blank">API Docs</a>
   </nav>
 </header>
 
-<!-- ── Main ────────────────────────────────────────────── -->
+<div class="wrap">
+<!-- ── Left content ── -->
 <div class="main">
 
-<!-- Left: content -->
-<div class="content">
-
-  <!-- ── System metrics ── -->
-  <div class="metrics-row" id="metricsRow">
-    <div class="metric"><div class="metric-label">Status</div><div class="metric-val" id="sysStatus">—</div></div>
-    <div class="metric"><div class="metric-label">Active Jobs</div><div class="metric-val" id="sysActive">0</div></div>
-    <div class="metric"><div class="metric-label">CUDA</div><div class="metric-val" id="sysCuda">—</div></div>
-    <div class="metric"><div class="metric-label">Model</div><div class="metric-val" id="sysModel">LatentSync</div></div>
-    <div class="metric"><div class="metric-label">Cache</div><div class="metric-val" id="sysCache">—</div></div>
+  <!-- top metrics -->
+  <div class="mrow">
+    <div class="met"><div class="met-l">Status</div><div class="met-v" id="m-status">—</div></div>
+    <div class="met"><div class="met-l">Active Jobs</div><div class="met-v" id="m-active">0</div></div>
+    <div class="met"><div class="met-l">CUDA</div><div class="met-v" id="m-cuda">—</div></div>
+    <div class="met"><div class="met-l">GPU Free</div><div class="met-v" id="m-gpufree">—</div></div>
+    <div class="met"><div class="met-l">Cache</div><div class="met-v" id="m-cache">—</div></div>
   </div>
 
   <!-- ── Dub section ── -->
-  <div id="section-dub">
+  <div class="section active" id="s-dub">
     <div class="tabs">
       <button class="tab active" onclick="switchTab('single',this)">Single Dub</button>
       <button class="tab" onclick="switchTab('batch',this)">Batch Dub</button>
       <button class="tab" onclick="switchTab('correct',this)">Dub Correct</button>
     </div>
 
-    <!-- Single Dub -->
-    <div class="tab-panel active" id="panel-single">
+    <!-- Single -->
+    <div class="panel active" id="p-single">
       <div class="card">
-        <div class="card-title">
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
-          Single Video Dub
-        </div>
-        <form id="singleForm" onsubmit="submitSingle(event)">
-          <div class="row2">
-            <div class="form-row">
+        <div class="card-h">🎬 Single Video Dub</div>
+        <form id="f-single" onsubmit="doSingle(event)">
+          <div class="grid2">
+            <div class="frow">
               <label>Video File *</label>
-              <div class="dropzone" id="dz-video" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'singleVideo')">
-                <input type="file" id="singleVideo" name="video" accept="video/*" required onchange="dzFileSet(this,'dz-video')"/>
+              <div class="dz" id="dz-sv" onclick="document.getElementById('in-sv').click()" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'in-sv')">
+                <input type="file" id="in-sv" name="video" accept="video/*" required onclick="event.stopPropagation()" onchange="dzSet(this,'dz-sv','nm-sv')">
                 <div class="dz-icon">🎬</div>
-                <div class="dz-text">Drop video here or <strong>browse</strong><br><span id="dz-video-name">MP4, MOV, AVI…</span></div>
+                <div class="dz-txt">Click or drop video<br><strong>MP4, MOV, AVI…</strong></div>
+                <div class="dz-name" id="nm-sv"></div>
               </div>
             </div>
-            <div class="form-row">
-              <label>Audio / Video Source <span class="text-muted text-sm">(optional)</span></label>
-              <div class="dropzone" id="dz-audio" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'singleAudio')">
-                <input type="file" id="singleAudio" name="audio" accept="audio/*,video/*" onchange="dzFileSet(this,'dz-audio')"/>
+            <div class="frow">
+              <label>Audio Source <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+              <div class="dz" id="dz-sa" onclick="document.getElementById('in-sa').click()" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'in-sa')">
+                <input type="file" id="in-sa" name="audio" accept="audio/*,video/*" onclick="event.stopPropagation()" onchange="dzSet(this,'dz-sa','nm-sa')">
                 <div class="dz-icon">🎵</div>
-                <div class="dz-text">Drop audio/video here or <strong>browse</strong><br><span id="dz-audio-name">WAV, MP3, MP4… (audio extracted)</span></div>
+                <div class="dz-txt">Click or drop audio/video<br><strong>WAV, MP3, MP4…</strong></div>
+                <div class="dz-name" id="nm-sa"></div>
               </div>
-              <div class="hint">Leave empty to extract audio from the video itself.</div>
+              <div class="hint">Leave empty to use video's own audio.</div>
             </div>
           </div>
 
-          <div class="form-row">
+          <div class="frow">
             <label>Model</label>
-            <select id="singleModel" name="model">
-              <option value="latentsync">LatentSync 1.5 (diffusion, ~10 GB VRAM)</option>
-              <option value="musetalk">MuseTalk v1.5 (GAN, ~7 GB VRAM)</option>
-            </select>
+            <select id="sel-s-model" name="model"><option value="latentsync">LatentSync 1.5</option></select>
           </div>
 
-          <details>
+          <div class="trow">
+            <span class="trow-label">Wait for result (sync mode)</span>
+            <label class="sw"><input type="checkbox" id="chk-s-sync" checked><span class="sl"></span></label>
+          </div>
+          <div class="hint" id="hint-sync">Sync: browser waits for inference. Uncheck for async queue.</div>
+
+          <details style="margin-top:8px">
             <summary>Advanced options</summary>
-            <div class="advanced">
-              <div class="row3">
-                <div class="form-row">
-                  <label>Inference Steps <span id="stepsVal">20</span></label>
-                  <input type="range" name="inference_steps" min="1" max="50" value="20" oninput="this.previousElementSibling.querySelector('span').textContent=this.value"/>
+            <div class="adv">
+              <div class="grid3">
+                <div class="frow">
+                  <label>Steps: <span id="lbl-steps">5</span></label>
+                  <input type="range" id="rng-steps" name="inference_steps" min="1" max="50" value="5" oninput="document.getElementById('lbl-steps').textContent=this.value">
                 </div>
-                <div class="form-row">
-                  <label>Guidance Scale <span id="gsVal">1.5</span></label>
-                  <input type="range" name="guidance_scale" min="0.5" max="5.0" step="0.1" value="1.5" oninput="this.previousElementSibling.querySelector('span').textContent=parseFloat(this.value).toFixed(1)"/>
+                <div class="frow">
+                  <label>Guidance: <span id="lbl-gs">1.5</span></label>
+                  <input type="range" id="rng-gs" name="guidance_scale" min="0.5" max="5.0" step="0.1" value="1.5" oninput="document.getElementById('lbl-gs').textContent=parseFloat(this.value).toFixed(1)">
                 </div>
-                <div class="form-row">
+                <div class="frow">
                   <label>BBox Shift</label>
-                  <input type="number" name="bbox_shift" value="0" min="-20" max="20"/>
+                  <input type="number" name="bbox_shift" value="0" min="-20" max="20">
                 </div>
               </div>
-              <div class="toggle-row">
-                <span class="toggle-label">DeepCache (faster, slight quality tradeoff)</span>
-                <label class="switch"><input type="checkbox" name="enable_deepcache" value="true"/><span class="slider"></span></label>
+              <div class="trow">
+                <span class="trow-label">DeepCache (faster, minor quality tradeoff)</span>
+                <label class="sw"><input type="checkbox" name="enable_deepcache" value="true"><span class="sl"></span></label>
               </div>
             </div>
           </details>
 
-          <div style="margin-top:14px">
-            <button type="submit" class="btn btn-primary btn-full" id="singleBtn">
-              <span class="spinner" id="singleSpinner" style="display:none"></span>
-              Submit Dub
-            </button>
-          </div>
+          <button type="submit" class="btn btn-p btn-full" id="btn-single" style="margin-top:12px">
+            <span class="spin" id="sp-single" style="display:none"></span>
+            Submit Dub
+          </button>
         </form>
-        <div class="result-box" id="singleResult"></div>
+        <div class="result" id="res-single"></div>
       </div>
     </div>
 
-    <!-- Batch Dub -->
-    <div class="tab-panel" id="panel-batch">
+    <!-- Batch -->
+    <div class="panel" id="p-batch">
       <div class="card">
-        <div class="card-title">
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          Batch Dub
-        </div>
+        <div class="card-h">📦 Batch Dub</div>
 
-        <div class="form-row">
+        <div class="frow">
           <label>Video Files * (up to 20)</label>
-          <div class="dropzone" id="dz-batch-v" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'batchVideos')">
-            <input type="file" id="batchVideos" accept="video/*" multiple onchange="batchFilesChanged()"/>
+          <div class="dz" id="dz-bv" onclick="document.getElementById('in-bv').click()" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'in-bv')">
+            <input type="file" id="in-bv" accept="video/*" multiple onclick="event.stopPropagation()" onchange="batchChanged()">
             <div class="dz-icon">🎬</div>
-            <div class="dz-text">Drop video files here or <strong>browse</strong><br><span id="batchVideoNames">No files selected</span></div>
+            <div class="dz-txt">Click or drop video files<br><strong>Multiple OK</strong></div>
+            <div class="dz-name" id="nm-bv"></div>
           </div>
         </div>
 
-        <div class="form-row">
-          <label>Audio / Video Sources <span class="text-muted text-sm">(optional)</span></label>
-          <div class="dropzone" id="dz-batch-a" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'batchAudios')">
-            <input type="file" id="batchAudios" accept="audio/*,video/*" multiple onchange="batchFilesChanged()"/>
+        <div class="frow">
+          <label>Audio Sources <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <div class="dz" id="dz-ba" onclick="document.getElementById('in-ba').click()" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'in-ba')">
+            <input type="file" id="in-ba" accept="audio/*,video/*" multiple onclick="event.stopPropagation()" onchange="batchChanged()">
             <div class="dz-icon">🎵</div>
-            <div class="dz-text">Drop audio/video files here or <strong>browse</strong><br><span id="batchAudioNames">No files selected</span></div>
+            <div class="dz-txt">Click or drop audio/video files<br><strong>Pairing: 1 shared · N:N · 1 video+M audios</strong></div>
+            <div class="dz-name" id="nm-ba"></div>
           </div>
-          <div class="hint">Pairing: 1 audio → shared; N:N → paired; 1 video + M audios → all combos</div>
         </div>
 
-        <!-- Per-pair dub_correct panel -->
-        <div id="batchPairsPanel" style="margin-bottom:12px;display:none">
-          <div class="section-title">Per-Pair Settings</div>
-          <div id="batchPairsList"></div>
+        <div id="batch-pairs" style="display:none;margin-bottom:10px">
+          <div class="st">Pair Preview</div>
+          <div id="batch-pairs-list"></div>
         </div>
 
-        <div class="form-row">
+        <div class="frow">
           <label>Model</label>
-          <select id="batchModel">
-            <option value="latentsync">LatentSync 1.5</option>
-            <option value="musetalk">MuseTalk v1.5</option>
-          </select>
+          <select id="sel-b-model"><option value="latentsync">LatentSync 1.5</option></select>
         </div>
 
-        <div class="toggle-row">
-          <span class="toggle-label">Dub Correct ALL (re-sync each video to its own audio)</span>
-          <label class="switch"><input type="checkbox" id="batchDubCorrectAll" onchange="batchFilesChanged()"/><span class="slider"></span></label>
+        <div class="trow">
+          <span class="trow-label">Dub Correct ALL (re-sync each video to its own audio)</span>
+          <label class="sw"><input type="checkbox" id="chk-dc-all" onchange="batchChanged()"><span class="sl"></span></label>
         </div>
 
-        <div style="margin-top:14px">
-          <button class="btn btn-primary btn-full" id="batchBtn" onclick="submitBatch()">
-            <span class="spinner" id="batchSpinner" style="display:none"></span>
-            Submit Batch
-          </button>
-        </div>
-        <div class="result-box" id="batchResult"></div>
+        <button class="btn btn-p btn-full" id="btn-batch" onclick="doBatch()" style="margin-top:12px">
+          <span class="spin" id="sp-batch" style="display:none"></span>
+          Submit Batch
+        </button>
+        <div class="result" id="res-batch"></div>
       </div>
     </div>
 
     <!-- Dub Correct -->
-    <div class="tab-panel" id="panel-correct">
+    <div class="panel" id="p-correct">
       <div class="card">
-        <div class="card-title">
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Dub Correct — Fix Badly Dubbed Video
-        </div>
-        <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">
-          Upload a video that already has dubbing applied but the lip-sync is wrong.
-          SwiftDub will extract the original audio and re-sync the lips to it.
-        </p>
-        <form id="correctForm" onsubmit="submitCorrect(event)">
-          <div class="form-row">
+        <div class="card-h">🔧 Dub Correct — Fix Badly Dubbed Video</div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px">Upload a video with wrong lip-sync. SwiftDub extracts its original audio and re-syncs automatically.</p>
+
+        <form id="f-correct" onsubmit="doCorrect(event)">
+          <div class="frow">
             <label>Badly Dubbed Video *</label>
-            <div class="dropzone" id="dz-correct" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'correctVideo')">
-              <input type="file" id="correctVideo" name="video" accept="video/*" required onchange="dzFileSet(this,'dz-correct')"/>
+            <div class="dz" id="dz-cv" onclick="document.getElementById('in-cv').click()" ondragover="dzOver(event,this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event,this,'in-cv')">
+              <input type="file" id="in-cv" name="video" accept="video/*" required onclick="event.stopPropagation()" onchange="dzSet(this,'dz-cv','nm-cv')">
               <div class="dz-icon">🔧</div>
-              <div class="dz-text">Drop video here or <strong>browse</strong><br><span id="dz-correct-name">MP4, MOV…</span></div>
+              <div class="dz-txt">Click or drop video<br><strong>MP4, MOV…</strong></div>
+              <div class="dz-name" id="nm-cv"></div>
             </div>
           </div>
-          <div class="form-row">
+          <div class="frow">
             <label>Model</label>
-            <select id="correctModel" name="model">
-              <option value="latentsync">LatentSync 1.5</option>
-              <option value="musetalk">MuseTalk v1.5</option>
-            </select>
+            <select id="sel-c-model" name="model"><option value="latentsync">LatentSync 1.5</option></select>
           </div>
-          <button type="submit" class="btn btn-primary btn-full" id="correctBtn" style="margin-top:14px">
-            <span class="spinner" id="correctSpinner" style="display:none"></span>
+          <input type="hidden" name="inference_steps" value="5">
+          <div class="trow">
+            <span class="trow-label">Wait for result (sync mode)</span>
+            <label class="sw"><input type="checkbox" id="chk-c-sync" checked><span class="sl"></span></label>
+          </div>
+          <button type="submit" class="btn btn-p btn-full" id="btn-correct" style="margin-top:12px">
+            <span class="spin" id="sp-correct" style="display:none"></span>
             Fix Lip Sync
           </button>
         </form>
-        <div class="result-box" id="correctResult"></div>
+        <div class="result" id="res-correct"></div>
       </div>
     </div>
-  </div><!-- /section-dub -->
+  </div><!-- /s-dub -->
 
-  <!-- ── Jobs History section ── -->
-  <div id="section-jobs" style="display:none">
+  <!-- ── Jobs section ── -->
+  <div class="section" id="s-jobs">
     <div class="card">
-      <div class="card-title">
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        Job History
-        <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="loadJobs()">⟳ Refresh</button>
+      <div class="card-h">
+        📋 Job History
+        <button class="btn btn-g btn-sm" onclick="loadJobs()" style="margin-left:auto">⟳ Refresh</button>
       </div>
 
-      <div class="table-toolbar">
-        <input type="text" id="jobSearch" placeholder="Search video name or job ID…" oninput="debounceSearch()" style="max-width:220px"/>
-        <select id="jobStatusFilter" onchange="loadJobs()">
+      <div class="toolbar">
+        <input type="text" id="j-search" placeholder="Search video / job ID…" oninput="debSearch()" style="max-width:200px">
+        <select id="j-status" onchange="state.page=1;loadJobs()" style="max-width:130px">
           <option value="">All Statuses</option>
           <option value="queued">Queued</option>
           <option value="processing">Processing</option>
           <option value="completed">Completed</option>
           <option value="failed">Failed</option>
         </select>
-        <select id="jobSortBy" onchange="loadJobs()">
+        <select id="j-sort" onchange="state.page=1;loadJobs()" style="max-width:130px">
           <option value="created_at">Created</option>
-          <option value="updated_at">Updated</option>
           <option value="elapsed_s">Duration</option>
           <option value="status">Status</option>
         </select>
-        <select id="jobSortOrder" onchange="loadJobs()">
+        <select id="j-order" onchange="state.page=1;loadJobs()" style="max-width:120px">
           <option value="desc">Newest first</option>
           <option value="asc">Oldest first</option>
         </select>
-        <span id="jobsTotal" class="text-muted text-sm" style="margin-left:auto"></span>
+        <span id="j-total" style="color:var(--muted);font-size:.78rem;margin-left:auto"></span>
       </div>
 
-      <div class="table-wrap">
-        <table id="jobsTable">
-          <thead>
-            <tr>
-              <th onclick="sortCol('created_at')">Created <span class="sort-arrow">↕</span></th>
-              <th>Job ID</th>
-              <th>Batch ID</th>
-              <th onclick="sortCol('status')">Status <span class="sort-arrow">↕</span></th>
-              <th>Model</th>
-              <th>Video</th>
-              <th>DC</th>
-              <th onclick="sortCol('elapsed_s')">Duration <span class="sort-arrow">↕</span></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="jobsTbody">
-            <tr><td colspan="9" class="empty-state">Loading…</td></tr>
-          </tbody>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th onclick="sortBy('created_at')">Created ↕</th>
+            <th>Job ID</th>
+            <th>Batch</th>
+            <th onclick="sortBy('status')">Status ↕</th>
+            <th>Model</th>
+            <th>Video</th>
+            <th>DC</th>
+            <th onclick="sortBy('elapsed_s')">Time ↕</th>
+            <th>DL</th>
+          </tr></thead>
+          <tbody id="j-tbody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
         </table>
       </div>
 
-      <div class="pagination" id="pagination"></div>
+      <div class="pgn" id="pgn"></div>
 
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
-        <div class="page-jump">
-          <span class="text-sm text-muted">Go to page</span>
-          <input type="number" id="pageJump" min="1" style="width:60px" onkeydown="if(event.key==='Enter')jumpPage()"/>
-          <button class="btn btn-sm btn-ghost" onclick="jumpPage()">Go</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:.78rem;color:var(--muted)">Go to page</span>
+          <input type="number" id="j-jump" min="1" style="width:54px" onkeydown="if(event.key==='Enter')jumpPage()">
+          <button class="btn btn-g btn-sm" onclick="jumpPage()">Go</button>
         </div>
-        <div class="flex gap-8" style="margin-left:auto;align-items:center">
-          <span class="text-sm text-muted">Per page:</span>
-          <select class="per-page-select" id="perPageSelect" onchange="loadJobs()" style="max-width:80px">
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <span style="font-size:.78rem;color:var(--muted)">Per page:</span>
+          <select id="j-pp" onchange="state.page=1;loadJobs()" style="max-width:70px">
             <option value="5">5</option>
             <option value="10" selected>10</option>
             <option value="20">20</option>
-            <option value="50">50</option>
           </select>
         </div>
       </div>
     </div>
-  </div><!-- /section-jobs -->
-
-</div><!-- /content -->
-
-<!-- Right: sidebar -->
-<div class="sidebar">
-
-  <!-- GPU panel -->
-  <div class="section-title">GPU Resources</div>
-  <div id="gpuPanel">
-    <div class="empty-state" style="padding:16px">Loading GPU info…</div>
-  </div>
-
-  <!-- System health -->
-  <div class="section-title" style="margin-top:20px">System</div>
-  <div id="healthPanel">
-    <div style="font-size:.78rem;color:var(--muted)">Loading…</div>
-  </div>
-
-  <!-- Recent queue -->
-  <div class="section-title" style="margin-top:20px">Active / Recent Jobs</div>
-  <div id="recentPanel">
-    <div style="font-size:.78rem;color:var(--muted)">No recent jobs</div>
-  </div>
-
-</div><!-- /sidebar -->
+  </div><!-- /s-jobs -->
 
 </div><!-- /main -->
+
+<!-- ── Sidebar ── -->
+<div class="side">
+  <div class="st">GPU Resources</div>
+  <div id="gpu-panel"><div class="empty" style="padding:12px">Loading…</div></div>
+
+  <div class="st">System</div>
+  <div id="sys-panel"><div style="font-size:.76rem;color:var(--muted)">Loading…</div></div>
+
+  <div class="st">Observability</div>
+  <div class="obs-link">
+    <a href="http://localhost:3000" target="_blank" rel="noopener">📊 Grafana Dashboard</a>
+    <a href="http://localhost:9092" target="_blank" rel="noopener">📈 Prometheus</a>
+    <a href="http://localhost:5556" target="_blank" rel="noopener">🌸 Celery Flower</a>
+    <a href="/docs" target="_blank" rel="noopener">📖 API Docs</a>
+  </div>
+
+  <div class="st">Recent Jobs</div>
+  <div id="recent-panel"><div style="font-size:.76rem;color:var(--muted)">No jobs yet</div></div>
+</div>
+
+</div><!-- /wrap -->
 </div><!-- /app -->
 
-<!-- Toasts -->
 <div id="toasts"></div>
 
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
+  section: 'dub',
   page: 1,
-  perPage: 10,
-  search: '',
-  status: '',
-  sortBy: 'created_at',
-  order: 'desc',
   totalPages: 1,
   searchTimer: null,
-  pollTimers: {},
-  activeSection: 'dub',
 };
 
-// ── Section switching ─────────────────────────────────────────────────────────
-function showSection(name, el) {
-  state.activeSection = name;
-  document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
-  document.getElementById('section-' + name).style.display = 'block';
-  document.querySelectorAll('header nav a').forEach(a => a.classList.remove('active'));
-  if (el) el.classList.add('active');
+// ── Section & tab switching ──────────────────────────────────────────────────
+function showSection(name) {
+  state.section = name;
+  document.querySelectorAll('.section').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('s-' + name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
+  var nb = document.getElementById('nav-' + name);
+  if (nb) nb.classList.add('active');
   if (name === 'jobs') loadJobs();
 }
 
-// ── Tab switching ─────────────────────────────────────────────────────────────
-function switchTab(name, el) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('panel-' + name).classList.add('active');
-  el.classList.add('active');
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('p-' + name).classList.add('active');
+  btn.classList.add('active');
 }
 
-// ── Drag & drop helpers ──────────────────────────────────────────────────────
+// ── Dropzone helpers ─────────────────────────────────────────────────────────
 function dzOver(e, el) { e.preventDefault(); el.classList.add('over'); }
 function dzLeave(el) { el.classList.remove('over'); }
 function dzDrop(e, el, inputId) {
   e.preventDefault();
   el.classList.remove('over');
-  const input = document.getElementById(inputId);
-  const files = e.dataTransfer.files;
-  if (!files.length) return;
+  var input = document.getElementById(inputId);
+  if (!input || !e.dataTransfer.files.length) return;
   try {
-    const dt = new DataTransfer();
-    Array.from(files).forEach(f => dt.items.add(f));
+    var dt = new DataTransfer();
+    Array.from(e.dataTransfer.files).forEach(function(f) { dt.items.add(f); });
     input.files = dt.files;
     input.dispatchEvent(new Event('change'));
-  } catch(err) { toast('Drag-drop not supported in this browser, please click to browse', 'error'); }
+  } catch(err) { toast('Drag-drop unavailable — use click to browse', 'er'); }
 }
 
-function dzFileSet(input, dzId) {
-  const el = document.getElementById(dzId);
-  if (!input.files.length) { el.classList.remove('has-file'); return; }
+function dzSet(input, dzId, nameId) {
+  var el = document.getElementById(dzId);
+  var nm = document.getElementById(nameId);
+  if (!input.files.length) {
+    el.classList.remove('has-file');
+    if (nm) nm.textContent = '';
+    return;
+  }
   el.classList.add('has-file');
-  const nameEl = document.getElementById(dzId + '-name');
-  if (nameEl) nameEl.textContent = Array.from(input.files).map(f => f.name).join(', ');
+  if (nm) nm.textContent = Array.from(input.files).map(function(f) { return f.name; }).join(', ');
 }
 
-// ── Batch pair list ──────────────────────────────────────────────────────────
-function batchFilesChanged() {
-  const vf = document.getElementById('batchVideos').files;
-  const af = document.getElementById('batchAudios').files;
-  const dcAll = document.getElementById('batchDubCorrectAll').checked;
+// ── Batch pair preview ───────────────────────────────────────────────────────
+function batchChanged() {
+  var vf = document.getElementById('in-bv').files;
+  var af = document.getElementById('in-ba').files;
+  var dcAll = document.getElementById('chk-dc-all').checked;
 
-  document.getElementById('batchVideoNames').textContent = vf.length ? `${vf.length} file(s): ${Array.from(vf).map(f=>f.name).join(', ')}` : 'No files selected';
-  document.getElementById('batchAudioNames').textContent = af.length ? `${af.length} file(s): ${Array.from(af).map(f=>f.name).join(', ')}` : 'No files selected';
-  const vdz = document.getElementById('dz-batch-v');
-  const adz = document.getElementById('dz-batch-a');
-  vf.length ? vdz.classList.add('has-file') : vdz.classList.remove('has-file');
-  af.length ? adz.classList.add('has-file') : adz.classList.remove('has-file');
+  document.getElementById('nm-bv').textContent = vf.length ? vf.length + ' file(s)' : '';
+  document.getElementById('nm-ba').textContent = af.length ? af.length + ' file(s)' : '';
+  document.getElementById('dz-bv').classList.toggle('has-file', vf.length > 0);
+  document.getElementById('dz-ba').classList.toggle('has-file', af.length > 0);
 
-  if (!vf.length) { document.getElementById('batchPairsPanel').style.display = 'none'; return; }
+  var panel = document.getElementById('batch-pairs');
+  var list = document.getElementById('batch-pairs-list');
+  if (!vf.length) { panel.style.display = 'none'; return; }
 
-  // Determine pairs for display
-  const pairs = resolvePairsClient(vf.length, af.length);
-  const panel = document.getElementById('batchPairsPanel');
-  const list = document.getElementById('batchPairsList');
+  var pairs = makePairs(vf.length, af.length);
   list.innerHTML = '';
-  pairs.forEach((p, i) => {
-    const row = document.createElement('div');
-    row.className = 'batch-row';
-    row.innerHTML = `
-      <div class="batch-idx">${i+1}</div>
-      <div class="truncate" title="${Array.from(vf)[p[0]].name}">${Array.from(vf)[p[0]].name}</div>
-      <div class="truncate text-muted" title="${p[1]!==null?Array.from(af)[p[1]].name:'—'}">${p[1]!==null?Array.from(af)[p[1]].name:'(extract from video)'}</div>
-      <label class="dc-check" title="Dub Correct this pair">
-        <input type="checkbox" id="dcFlag${i}" ${dcAll?'checked':''}/> DC
-      </label>`;
+  pairs.forEach(function(p, i) {
+    var row = document.createElement('div');
+    row.className = 'bpair';
+    var vname = Array.from(vf)[p[0]].name;
+    var aname = p[1] !== null ? Array.from(af)[p[1]].name : '(from video)';
+    row.innerHTML = '<div class="bpair-idx">' + (i+1) + '</div>'
+      + '<div class="tr" title="' + esc(vname) + '">' + esc(vname) + '</div>'
+      + '<div class="tr" style="color:var(--muted)" title="' + esc(aname) + '">' + esc(aname) + '</div>'
+      + '<label style="display:flex;align-items:center;gap:4px;font-size:.74rem;color:var(--muted);cursor:pointer;white-space:nowrap">'
+      + '<input type="checkbox" id="dc-' + i + '"' + (dcAll ? ' checked' : '') + '> DC</label>';
     list.appendChild(row);
   });
   panel.style.display = 'block';
 }
 
-function resolvePairsClient(nV, nA) {
-  if (nA === 0) return Array.from({length:nV},(_, i)=>[i,null]);
-  if (nA === 1) return Array.from({length:nV},(_, i)=>[i,0]);
-  if (nV === 1) return Array.from({length:nA},(_, i)=>[0,i]);
-  if (nV === nA) return Array.from({length:nV},(_, i)=>[i,i]);
-  return Array.from({length:nV},(_, i)=>[i,null]);
+function makePairs(nV, nA) {
+  if (nA === 0) return Array.from({length:nV}, function(_, i) { return [i, null]; });
+  if (nA === 1) return Array.from({length:nV}, function(_, i) { return [i, 0]; });
+  if (nV === 1) return Array.from({length:nA}, function(_, i) { return [0, i]; });
+  if (nV === nA) return Array.from({length:nV}, function(_, i) { return [i, i]; });
+  return Array.from({length:nV}, function(_, i) { return [i, null]; });
 }
 
-// ── Single submit ────────────────────────────────────────────────────────────
-async function submitSingle(e) {
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Single dub ───────────────────────────────────────────────────────────────
+function doSingle(e) {
   e.preventDefault();
-  const form = document.getElementById('singleForm');
-  const btn = document.getElementById('singleBtn');
-  const spinner = document.getElementById('singleSpinner');
-  const resultBox = document.getElementById('singleResult');
+  var btn = document.getElementById('btn-single');
+  var sp  = document.getElementById('sp-single');
+  var res = document.getElementById('res-single');
+  var sync = document.getElementById('chk-s-sync').checked;
 
   btn.disabled = true;
-  spinner.style.display = 'inline-block';
-  resultBox.className = 'result-box visible';
-  resultBox.innerHTML = `<div class="flex gap-8"><div class="spinner"></div> Submitting…</div><div class="progress-bar-wrap"><div class="progress-bar indeterminate"></div></div>`;
+  sp.style.display = 'inline-block';
+  showResult(res, null);
 
-  const fd = new FormData(form);
-  fd.set('model', document.getElementById('singleModel').value);
+  var fd = new FormData(document.getElementById('f-single'));
+  fd.set('model', document.getElementById('sel-s-model').value);
   fd.set('dub_correct', 'false');
+  fd.set('sync', sync ? 'true' : 'false');
 
-  try {
-    const r = await fetch('/dub', {method:'POST', body:fd});
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || 'Request failed');
-    showJobResult(resultBox, data, 'single');
-    toast('Job submitted: ' + data.job_id.slice(0,8) + '…', 'success');
-    pollJobUntilDone(data.job_id, resultBox);
-  } catch(err) {
-    resultBox.innerHTML = `<div style="color:var(--danger)">❌ ${err.message}</div>`;
-    toast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    spinner.style.display = 'none';
-  }
+  fetch('/dub', {method:'POST', body:fd})
+    .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); })
+    .then(function(x) {
+      if (!x.ok) throw new Error(getError(x.d, 'Submit failed'));
+      toast('Job ' + x.d.job_id.slice(0,8) + '…', 'ok');
+      showResult(res, x.d);
+      if (x.d.status === 'queued' || x.d.status === 'processing') {
+        pollJob(x.d.job_id, res, btn, sp);
+      } else {
+        btn.disabled = false;
+        sp.style.display = 'none';
+        refreshSide();
+      }
+    })
+    .catch(function(err) {
+      res.className = 'result show';
+      res.innerHTML = '<span style="color:var(--err)">❌ ' + esc(err.message) + '</span>';
+      toast(err.message, 'er');
+      btn.disabled = false;
+      sp.style.display = 'none';
+    });
 }
 
-// ── Dub Correct submit ───────────────────────────────────────────────────────
-async function submitCorrect(e) {
+// ── Dub correct ──────────────────────────────────────────────────────────────
+function doCorrect(e) {
   e.preventDefault();
-  const form = document.getElementById('correctForm');
-  const btn = document.getElementById('correctBtn');
-  const spinner = document.getElementById('correctSpinner');
-  const resultBox = document.getElementById('correctResult');
+  var btn = document.getElementById('btn-correct');
+  var sp  = document.getElementById('sp-correct');
+  var res = document.getElementById('res-correct');
+  var sync = document.getElementById('chk-c-sync').checked;
 
   btn.disabled = true;
-  spinner.style.display = 'inline-block';
-  resultBox.className = 'result-box visible';
-  resultBox.innerHTML = `<div class="flex gap-8"><div class="spinner"></div> Processing…</div><div class="progress-bar-wrap"><div class="progress-bar indeterminate"></div></div>`;
+  sp.style.display = 'inline-block';
+  showResult(res, null);
 
-  const fd = new FormData(form);
-  fd.set('model', document.getElementById('correctModel').value);
+  var fd = new FormData(document.getElementById('f-correct'));
+  fd.set('model', document.getElementById('sel-c-model').value);
   fd.set('dub_correct', 'true');
+  fd.set('sync', sync ? 'true' : 'false');
 
-  try {
-    const r = await fetch('/dub', {method:'POST', body:fd});
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || 'Request failed');
-    showJobResult(resultBox, data, 'correct');
-    toast('Dub correct job: ' + data.job_id.slice(0,8) + '…', 'success');
-    pollJobUntilDone(data.job_id, resultBox);
-  } catch(err) {
-    resultBox.innerHTML = `<div style="color:var(--danger)">❌ ${err.message}</div>`;
-    toast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    spinner.style.display = 'none';
-  }
+  fetch('/dub', {method:'POST', body:fd})
+    .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); })
+    .then(function(x) {
+      if (!x.ok) throw new Error(getError(x.d, 'Submit failed'));
+      toast('Dub Correct ' + x.d.job_id.slice(0,8) + '…', 'ok');
+      showResult(res, x.d);
+      if (x.d.status === 'queued' || x.d.status === 'processing') {
+        pollJob(x.d.job_id, res, btn, sp);
+      } else {
+        btn.disabled = false;
+        sp.style.display = 'none';
+        refreshSide();
+      }
+    })
+    .catch(function(err) {
+      res.className = 'result show';
+      res.innerHTML = '<span style="color:var(--err)">❌ ' + esc(err.message) + '</span>';
+      toast(err.message, 'er');
+      btn.disabled = false;
+      sp.style.display = 'none';
+    });
 }
 
-// ── Batch submit ─────────────────────────────────────────────────────────────
-async function submitBatch() {
-  const btn = document.getElementById('batchBtn');
-  const spinner = document.getElementById('batchSpinner');
-  const resultBox = document.getElementById('batchResult');
-  const vf = document.getElementById('batchVideos').files;
-  if (!vf.length) { toast('Select at least one video', 'error'); return; }
+// ── Batch dub ────────────────────────────────────────────────────────────────
+function doBatch() {
+  var btn = document.getElementById('btn-batch');
+  var sp  = document.getElementById('sp-batch');
+  var res = document.getElementById('res-batch');
+  var vf = document.getElementById('in-bv').files;
+  if (!vf.length) { toast('Select at least one video', 'er'); return; }
 
-  // Collect per-pair dub_correct flags
-  const pairs = resolvePairsClient(vf.length, document.getElementById('batchAudios').files.length);
-  const dcFlags = pairs.map((_, i) => {
-    const cb = document.getElementById('dcFlag' + i);
-    return cb ? cb.checked : document.getElementById('batchDubCorrectAll').checked;
+  var af = document.getElementById('in-ba').files;
+  var pairs = makePairs(vf.length, af.length);
+  var dcFlags = pairs.map(function(_, i) {
+    var cb = document.getElementById('dc-' + i);
+    return cb ? cb.checked : document.getElementById('chk-dc-all').checked;
   });
 
   btn.disabled = true;
-  spinner.style.display = 'inline-block';
-  resultBox.className = 'result-box visible';
-  resultBox.innerHTML = `<div class="flex gap-8"><div class="spinner"></div> Queuing batch…</div>`;
+  sp.style.display = 'inline-block';
+  res.className = 'result show';
+  res.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><div class="spin" style="border-top-color:var(--accent);border-color:rgba(91,110,245,.2)"></div> Queuing…</div>';
 
-  const fd = new FormData();
-  Array.from(vf).forEach(f => fd.append('videos', f));
-  const af = document.getElementById('batchAudios').files;
-  Array.from(af).forEach(f => fd.append('audios', f));
-  fd.append('model', document.getElementById('batchModel').value);
-  fd.append('dub_correct', document.getElementById('batchDubCorrectAll').checked ? 'true' : 'false');
+  var fd = new FormData();
+  Array.from(vf).forEach(function(f) { fd.append('videos', f); });
+  Array.from(af).forEach(function(f) { fd.append('audios', f); });
+  fd.append('model', document.getElementById('sel-b-model').value);
+  fd.append('inference_steps', '5');
+  fd.append('dub_correct', document.getElementById('chk-dc-all').checked ? 'true' : 'false');
   fd.append('dub_correct_flags', JSON.stringify(dcFlags));
 
-  try {
-    const r = await fetch('/dub/batch', {method:'POST', body:fd});
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || 'Batch failed');
-
-    let html = `<div style="margin-bottom:8px"><strong>Batch ${data.batch_id.slice(0,8)}…</strong> — ${data.total} job(s) queued</div><div style="display:flex;flex-direction:column;gap:4px">`;
-    data.jobs.forEach(j => {
-      html += `<div class="flex gap-8" id="bj-${j.job_id}"><span class="badge badge-queued">queued</span><span class="mono">${j.job_id.slice(0,12)}…</span></div>`;
+  fetch('/dub/batch', {method:'POST', body:fd})
+    .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); })
+    .then(function(x) {
+      if (!x.ok) throw new Error(getError(x.d, 'Batch failed'));
+      var html = '<div style="margin-bottom:8px"><strong>Batch ' + x.d.batch_id.slice(0,8) + '…</strong> — ' + x.d.total + ' jobs queued</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:4px">';
+      x.d.jobs.forEach(function(j) {
+        html += '<div style="display:flex;align-items:center;gap:6px" id="bj-' + j.job_id + '">'
+          + '<span class="badge b-queued">queued</span>'
+          + '<span class="mono">' + j.job_id.slice(0,12) + '…</span></div>';
+      });
+      html += '</div>';
+      res.innerHTML = html;
+      toast('Batch queued: ' + x.d.total + ' jobs', 'ok');
+      x.d.jobs.forEach(function(j) { pollBatchJob(j.job_id); });
+    })
+    .catch(function(err) {
+      res.innerHTML = '<span style="color:var(--err)">❌ ' + esc(err.message) + '</span>';
+      toast(err.message, 'er');
+    })
+    .finally(function() {
+      btn.disabled = false;
+      sp.style.display = 'none';
     });
-    html += '</div>';
-    resultBox.innerHTML = html;
-    toast(`Batch queued: ${data.total} jobs`, 'success');
-    data.jobs.forEach(j => pollBatchJob(j.job_id));
-  } catch(err) {
-    resultBox.innerHTML = `<div style="color:var(--danger)">❌ ${err.message}</div>`;
-    toast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    spinner.style.display = 'none';
-  }
 }
 
-// ── Job result display ───────────────────────────────────────────────────────
-function showJobResult(box, data, mode) {
-  const status = data.status;
-  const elapsed = data.elapsed_s ? ` • ${data.elapsed_s.toFixed(1)}s` : '';
-  if (status === 'completed' && data.download_url) {
-    box.innerHTML = `
-      <div class="flex gap-8" style="margin-bottom:8px">
-        <span class="badge badge-completed">✓ Completed</span>
-        <span class="text-muted text-sm">${data.model}${elapsed}</span>
-      </div>
-      <a href="${data.download_url}" class="btn btn-success btn-sm" download>⬇ Download Result</a>
-      <div class="text-muted text-sm" style="margin-top:6px">Job ID: <span class="mono">${data.job_id}</span></div>`;
-  } else if (status === 'failed') {
-    box.innerHTML = `<span class="badge badge-failed">Failed</span> <span class="text-sm text-muted">${data.error||'Unknown error'}</span>`;
+// ── Job result rendering ──────────────────────────────────────────────────────
+function showResult(box, data) {
+  box.className = 'result show';
+  if (!data) {
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><div class="spin"></div> Submitting…</div><div class="pbar-wrap"><div class="pbar anim"></div></div>';
+    return;
+  }
+  var st = data.status;
+  var elapsed = data.elapsed_s != null ? ' • ' + data.elapsed_s.toFixed(1) + 's' : '';
+  if (st === 'completed' && data.download_url) {
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+      + '<span class="badge b-completed">✓ Completed</span>'
+      + '<span style="color:var(--muted);font-size:.76rem">' + esc(data.model || '') + elapsed + '</span></div>'
+      + '<a href="' + data.download_url + '" class="btn btn-ok btn-sm" download>⬇ Download Result</a>'
+      + '<div style="color:var(--muted);font-size:.72rem;margin-top:6px" class="mono">' + data.job_id + '</div>';
+  } else if (st === 'failed') {
+    box.innerHTML = '<span class="badge b-failed">Failed</span> <span style="color:var(--muted);font-size:.76rem">'
+      + esc(data.error || 'Unknown error') + '</span>';
   } else {
-    box.innerHTML = `
-      <div class="flex gap-8" style="margin-bottom:6px">
-        <span class="badge badge-${status}">${status}</span>
-        <span class="text-muted text-sm">${data.model}</span>
-        <span class="text-muted text-sm" style="margin-left:auto;font-family:monospace;font-size:.72rem">${data.job_id.slice(0,12)}…</span>
-      </div>
-      <div class="progress-bar-wrap"><div class="progress-bar indeterminate"></div></div>`;
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      + '<span class="badge b-' + esc(st) + '">' + esc(st) + '</span>'
+      + '<span style="color:var(--muted);font-size:.76rem">' + esc(data.model || '') + '</span>'
+      + '<span class="mono" style="margin-left:auto;font-size:.7rem">' + (data.job_id || '').slice(0,12) + '…</span></div>'
+      + '<div class="pbar-wrap"><div class="pbar anim"></div></div>';
   }
 }
 
 // ── Job polling ───────────────────────────────────────────────────────────────
-async function pollJobUntilDone(jobId, box) {
-  let attempts = 0;
-  const t = setInterval(async () => {
+function pollJob(jobId, box, btn, sp) {
+  var attempts = 0;
+  var t = setInterval(function() {
     attempts++;
-    if (attempts > 360) { clearInterval(t); return; }
-    try {
-      const r = await fetch('/jobs/' + jobId);
-      const data = await r.json();
-      if (!r.ok) return;
-      data.job_id = jobId;
-      if (data.status === 'completed' || data.status === 'failed') {
-        clearInterval(t);
-        showJobResult(box, data, '');
-        refreshSidebar();
-        if (state.activeSection === 'jobs') loadJobs();
-      }
-    } catch(e) {}
+    if (attempts > 120) {
+      clearInterval(t);
+      if (btn) btn.disabled = false;
+      if (sp) sp.style.display = 'none';
+      toast('Job timed out — check Jobs tab', 'er');
+      return;
+    }
+    fetch('/jobs/' + jobId)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        d.job_id = jobId;
+        showResult(box, d);
+        if (d.status === 'completed' || d.status === 'failed') {
+          clearInterval(t);
+          if (btn) btn.disabled = false;
+          if (sp) sp.style.display = 'none';
+          refreshSide();
+          if (state.section === 'jobs') loadJobs();
+          if (d.status === 'failed') toast(d.error || 'Job failed', 'er');
+          else toast('Completed! Download ready.', 'ok');
+        }
+      })
+      .catch(function() {});
+  }, 2500);
+}
+
+function pollBatchJob(jobId) {
+  var el = document.getElementById('bj-' + jobId);
+  var attempts = 0;
+  var t = setInterval(function() {
+    attempts++;
+    if (attempts > 200) { clearInterval(t); return; }
+    fetch('/jobs/' + jobId)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (el) {
+          var dl = (d.status === 'completed' && d.download_url)
+            ? ' <a href="' + d.download_url + '" class="btn btn-sm btn-ok" download>⬇</a>' : '';
+          var elapsed = d.elapsed_s != null ? ' ' + d.elapsed_s.toFixed(1) + 's' : '';
+          el.innerHTML = '<span class="badge b-' + esc(d.status) + '">' + esc(d.status) + elapsed + '</span>'
+            + '<span class="mono">' + jobId.slice(0,12) + '…</span>' + dl;
+        }
+        if (d.status === 'completed' || d.status === 'failed') {
+          clearInterval(t);
+          if (state.section === 'jobs') loadJobs();
+        }
+      })
+      .catch(function() {});
   }, 3000);
 }
 
-async function pollBatchJob(jobId) {
-  const el = document.getElementById('bj-' + jobId);
-  let attempts = 0;
-  const t = setInterval(async () => {
-    attempts++;
-    if (attempts > 360) { clearInterval(t); return; }
-    try {
-      const r = await fetch('/jobs/' + jobId);
-      const data = await r.json();
-      if (!r.ok) return;
-      if (el) {
-        const badgeClass = `badge-${data.status}`;
-        const dlLink = data.status === 'completed' && data.download_url
-          ? ` <a href="${data.download_url}" class="btn btn-sm btn-success" style="padding:2px 8px;font-size:.7rem" download>⬇</a>` : '';
-        const elapsed = data.elapsed_s ? ` ${data.elapsed_s.toFixed(1)}s` : '';
-        el.innerHTML = `<span class="badge ${badgeClass}">${data.status}${elapsed}</span><span class="mono">${jobId.slice(0,12)}…</span>${dlLink}`;
-      }
-      if (data.status === 'completed' || data.status === 'failed') {
-        clearInterval(t);
-        if (state.activeSection === 'jobs') loadJobs();
-      }
-    } catch(e) {}
-  }, 4000);
+// ── Jobs table ────────────────────────────────────────────────────────────────
+function loadJobs() {
+  var pp = parseInt(document.getElementById('j-pp').value) || 10;
+  var status = document.getElementById('j-status').value;
+  var sortV  = document.getElementById('j-sort').value;
+  var order  = document.getElementById('j-order').value;
+  var search = document.getElementById('j-search').value.trim();
+  var tbody  = document.getElementById('j-tbody');
+
+  var params = 'page=' + state.page + '&per_page=' + pp + '&sort_by=' + sortV + '&order=' + order;
+  if (status) params += '&status=' + encodeURIComponent(status);
+  if (search) params += '&search=' + encodeURIComponent(search);
+
+  tbody.innerHTML = '<tr><td colspan="9" class="empty"><div class="spin" style="margin:0 auto;border-top-color:var(--accent);border-color:rgba(91,110,245,.2)"></div></td></tr>';
+
+  fetch('/jobs?' + params)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      state.totalPages = d.pages;
+      document.getElementById('j-total').textContent = d.total + ' total';
+      renderJobTable(d.jobs);
+      renderPagination(d.page, d.pages);
+    })
+    .catch(function(err) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty" style="color:var(--err)">' + esc(err.message) + '</td></tr>';
+    });
 }
 
-// ── Jobs table ───────────────────────────────────────────────────────────────
-async function loadJobs() {
-  state.perPage = parseInt(document.getElementById('perPageSelect').value) || 10;
-  state.status = document.getElementById('jobStatusFilter').value;
-  state.sortBy = document.getElementById('jobSortBy').value;
-  state.order = document.getElementById('jobSortOrder').value;
-
-  const params = new URLSearchParams({
-    page: state.page,
-    per_page: state.perPage,
-    sort_by: state.sortBy,
-    order: state.order,
-  });
-  if (state.search) params.set('search', state.search);
-  if (state.status) params.set('status', state.status);
-
-  const tbody = document.getElementById('jobsTbody');
-  tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="spinner" style="margin:0 auto"></div></td></tr>';
-
-  try {
-    const r = await fetch('/jobs?' + params);
-    const data = await r.json();
-    if (!r.ok) throw new Error('Failed to load jobs');
-
-    state.totalPages = data.pages;
-    document.getElementById('jobsTotal').textContent = `${data.total} total`;
-    renderJobsTable(data.jobs);
-    renderPagination(data.page, data.pages);
-  } catch(err) {
-    tbody.innerHTML = `<tr><td colspan="9" class="empty-state" style="color:var(--danger)">${err.message}</td></tr>`;
-  }
-}
-
-function renderJobsTable(jobs) {
-  const tbody = document.getElementById('jobsTbody');
-  if (!jobs.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No jobs found</td></tr>';
+function renderJobTable(jobs) {
+  var tbody = document.getElementById('j-tbody');
+  if (!jobs || !jobs.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No jobs found</td></tr>';
     return;
   }
-  tbody.innerHTML = jobs.map(j => {
-    const created = j.created_at ? new Date(j.created_at).toLocaleString() : '—';
-    const elapsed = j.elapsed_s != null ? `${j.elapsed_s.toFixed(1)}s` : '—';
-    const badgeClass = `badge-${j.status}`;
-    const batchId = j.batch_id ? `<span class="mono" title="${j.batch_id}" style="cursor:pointer" onclick="filterBatch('${j.batch_id}')">${j.batch_id.slice(0,8)}…</span>` : '—';
-    const dl = j.download_url
-      ? `<a href="${j.download_url}" class="btn btn-sm btn-success" download title="Download">⬇</a>`
+  var rows = jobs.map(function(j) {
+    var created = j.created_at ? new Date(j.created_at).toLocaleString('en-IN', {timeZone:'Asia/Kolkata'}) : '—';
+    var elapsed = j.elapsed_s != null ? j.elapsed_s.toFixed(1) + 's' : '—';
+    var badge = '<span class="badge b-' + esc(j.status) + '">' + esc(j.status) + '</span>';
+    var batchCell = j.batch_id
+      ? '<span class="mono" style="cursor:pointer" onclick="filterBatch(\'' + esc(j.batch_id) + '\')" title="Filter by batch">' + j.batch_id.slice(0,8) + '…</span>'
+      : '—';
+    var dl = j.download_url
+      ? '<a href="' + j.download_url + '" class="btn btn-sm btn-ok" download>⬇</a>'
       : '';
-    const errBtn = j.error
-      ? `<button class="btn btn-sm btn-danger" onclick="alert('${(j.error||'').replace(/'/g,'\\'')}')" title="View error">!</button>`
-      : '';
-    const dc = j.dub_correct ? '<span style="color:var(--accent2)" title="Dub Correct">✓</span>' : '—';
-    const video = j.original_video || j.metadata?.original_video || '—';
-    return `<tr>
-      <td style="color:var(--muted);font-size:.72rem">${created}</td>
-      <td class="job-id-cell" title="${j.job_id}">${j.job_id.slice(0,10)}…</td>
-      <td>${batchId}</td>
-      <td><span class="badge ${badgeClass}">${j.status}</span></td>
-      <td class="text-muted">${j.model}</td>
-      <td class="video-name" title="${video}">${video}</td>
-      <td style="text-align:center">${dc}</td>
-      <td class="elapsed">${elapsed}</td>
-      <td><div class="flex gap-8">${dl}${errBtn}</div></td>
-    </tr>`;
-  }).join('');
+    var video = j.original_video || (j.metadata && j.metadata.original_video) || '—';
+    var dc = j.dub_correct ? '<span style="color:var(--accent2)" title="Dub Correct">✓</span>' : '—';
+    return '<tr>'
+      + '<td style="font-size:.7rem;color:var(--muted)">' + esc(created) + '</td>'
+      + '<td class="jid" title="' + esc(j.job_id) + '">' + j.job_id.slice(0,10) + '…</td>'
+      + '<td>' + batchCell + '</td>'
+      + '<td>' + badge + '</td>'
+      + '<td style="color:var(--muted)">' + esc(j.model || '') + '</td>'
+      + '<td class="vname" title="' + esc(video) + '">' + esc(video) + '</td>'
+      + '<td style="text-align:center">' + dc + '</td>'
+      + '<td style="color:var(--muted)">' + esc(elapsed) + '</td>'
+      + '<td>' + dl + '</td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = rows.join('');
 }
 
 function renderPagination(page, pages) {
-  const pg = document.getElementById('pagination');
+  var pg = document.getElementById('pgn');
   if (pages <= 1) { pg.innerHTML = ''; return; }
-  let html = '';
-  html += `<button class="page-btn" onclick="goPage(${page-1})" ${page<=1?'disabled':''}>‹ Prev</button>`;
-
-  const range = buildPageRange(page, pages);
-  range.forEach(p => {
-    if (p === '…') {
-      html += `<span style="color:var(--muted);padding:0 4px">…</span>`;
-    } else {
-      html += `<button class="page-btn ${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;
-    }
+  var html = '<button class="pb" onclick="goPage(' + (page-1) + ')"' + (page<=1?' disabled':'') + '>‹</button>';
+  var range = pageRange(page, pages);
+  range.forEach(function(p) {
+    if (p === '…') html += '<span style="color:var(--muted);padding:0 4px">…</span>';
+    else html += '<button class="pb' + (p===page?' active':'') + '" onclick="goPage(' + p + ')">' + p + '</button>';
   });
-
-  html += `<button class="page-btn" onclick="goPage(${page+1})" ${page>=pages?'disabled':''}>Next ›</button>`;
-  html += `<span class="page-info">Page ${page} / ${pages}</span>`;
+  html += '<button class="pb" onclick="goPage(' + (page+1) + ')"' + (page>=pages?' disabled':'') + '>›</button>';
+  html += '<span class="p-info">Page ' + page + ' / ' + pages + '</span>';
   pg.innerHTML = html;
-  document.getElementById('pageJump').value = page;
-  document.getElementById('pageJump').max = pages;
+  document.getElementById('j-jump').value = page;
 }
 
-function buildPageRange(page, pages) {
-  if (pages <= 7) return Array.from({length:pages}, (_, i) => i+1);
-  const r = [1];
+function pageRange(page, pages) {
+  if (pages <= 7) return Array.from({length:pages}, function(_, i) { return i+1; });
+  var r = [1];
   if (page > 3) r.push('…');
-  for (let i = Math.max(2, page-1); i <= Math.min(pages-1, page+1); i++) r.push(i);
+  for (var i = Math.max(2,page-1); i <= Math.min(pages-1,page+1); i++) r.push(i);
   if (page < pages-2) r.push('…');
   r.push(pages);
   return r;
 }
 
 function goPage(p) {
-  p = Math.max(1, Math.min(p, state.totalPages));
-  state.page = p;
+  state.page = Math.max(1, Math.min(p, state.totalPages));
   loadJobs();
 }
-
 function jumpPage() {
-  const val = parseInt(document.getElementById('pageJump').value);
-  if (!isNaN(val)) goPage(val);
+  var v = parseInt(document.getElementById('j-jump').value);
+  if (!isNaN(v)) goPage(v);
 }
-
-function sortCol(col) {
-  if (state.sortBy === col) {
-    state.order = state.order === 'desc' ? 'asc' : 'desc';
+function sortBy(col) {
+  var ord = document.getElementById('j-order');
+  var srt = document.getElementById('j-sort');
+  if (srt.value === col) {
+    ord.value = ord.value === 'desc' ? 'asc' : 'desc';
   } else {
-    state.sortBy = col;
-    state.order = 'desc';
+    srt.value = col;
+    ord.value = 'desc';
   }
-  document.getElementById('jobSortBy').value = col;
-  document.getElementById('jobSortOrder').value = state.order;
   state.page = 1;
   loadJobs();
 }
-
 function filterBatch(batchId) {
-  showSection('jobs', document.querySelector('header nav a:nth-child(2)'));
-  // Filter by batch via URL - we just pass batch_id in query
-  state.page = 1;
-  const params = new URLSearchParams({page:1, per_page:state.perPage, sort_by:state.sortBy, order:state.order, batch_id:batchId});
-  fetch('/jobs?' + params).then(r=>r.json()).then(data => {
-    state.totalPages = data.pages;
-    document.getElementById('jobsTotal').textContent = `${data.total} in batch`;
-    renderJobsTable(data.jobs);
-    renderPagination(data.page, data.pages);
-    toast(`Showing batch ${batchId.slice(0,8)}… (${data.total} jobs)`, 'success');
-  });
+  showSection('jobs');
+  fetch('/jobs?page=1&per_page=20&batch_id=' + encodeURIComponent(batchId))
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById('j-total').textContent = d.total + ' in batch';
+      renderJobTable(d.jobs);
+      renderPagination(d.page, d.pages);
+      toast('Batch ' + batchId.slice(0,8) + '… (' + d.total + ' jobs)', 'ok');
+    });
 }
-
-function debounceSearch() {
+function debSearch() {
   clearTimeout(state.searchTimer);
-  state.searchTimer = setTimeout(() => {
-    state.search = document.getElementById('jobSearch').value.trim();
-    state.page = 1;
-    loadJobs();
-  }, 400);
+  state.searchTimer = setTimeout(function() { state.page = 1; loadJobs(); }, 400);
 }
 
 // ── GPU sidebar ───────────────────────────────────────────────────────────────
-async function loadGPUStatus() {
-  try {
-    const r = await fetch('/gpu/status');
-    if (!r.ok) return;
-    const data = await r.json();
-    renderGPUPanel(data);
-  } catch(e) {}
-}
-
-function renderGPUPanel(data) {
-  const panel = document.getElementById('gpuPanel');
-  if (!data.devices || !data.devices.length) {
-    panel.innerHTML = '<div class="text-muted text-sm">No GPU devices found</div>';
-    return;
-  }
-  let html = '';
-  data.devices.forEach(d => {
-    const total = d.total_gb;
-    const ovhPct  = total > 0 ? (d.overhead_gb / total * 100).toFixed(1) : 0;
-    const actPct  = total > 0 ? (d.claimed_gb / total * 100).toFixed(1) : 0;
-    const freePct = total > 0 ? Math.max(0, 100 - parseFloat(ovhPct) - parseFloat(actPct)).toFixed(1) : 100;
-    const usedPct = d.used_pct || 0;
-
-    html += `<div class="gpu-card">
-      <div class="gpu-header">
-        <div class="gpu-name">GPU ${d.gpu_id} — ${d.name}</div>
-        <div class="gpu-pct">${usedPct}% used</div>
-      </div>
-      <div class="gpu-bar-wrap">
-        <div class="gpu-seg seg-overhead" style="width:${ovhPct}%" title="Reserved overhead (20%): ${d.overhead_gb.toFixed(1)} GB"></div>
-        <div class="gpu-seg seg-active"   style="width:${actPct}%"  title="Active inference: ${d.claimed_gb.toFixed(1)} GB"></div>
-        <div class="gpu-seg seg-free"     style="width:${freePct}%" title="Free usable: ${d.soft_available_gb.toFixed(1)} GB"></div>
-      </div>
-      <div class="gpu-legend">
-        <div class="gpu-legend-item"><div class="gpu-legend-dot" style="background:rgba(107,114,128,.45)"></div>Overhead (${d.overhead_gb.toFixed(1)} GB)</div>
-        <div class="gpu-legend-item"><div class="gpu-legend-dot" style="background:var(--accent)"></div>Active (${d.claimed_gb.toFixed(1)} GB)</div>
-        <div class="gpu-legend-item"><div class="gpu-legend-dot" style="background:rgba(34,197,94,.4)"></div>Free (${d.soft_available_gb.toFixed(1)} GB)</div>
-      </div>
-      <div class="gpu-stats">
-        <div class="gpu-stat"><div class="gpu-stat-label">Total VRAM</div><div class="gpu-stat-val">${d.total_gb.toFixed(1)} GB</div></div>
-        <div class="gpu-stat"><div class="gpu-stat-label">Active Jobs</div><div class="gpu-stat-val ${d.active_jobs>0?'':'text-muted'}">${d.active_jobs}</div></div>
-        <div class="gpu-stat"><div class="gpu-stat-label">Actual Free</div><div class="gpu-stat-val">${d.actual_free_gb.toFixed(1)} GB</div></div>
-        <div class="gpu-stat"><div class="gpu-stat-label">Usable (80%)</div><div class="gpu-stat-val">${d.usable_gb.toFixed(1)} GB</div></div>
-      </div>
-      ${d.active_job_ids.length ? `<div class="gpu-jobs-list">Running: ${d.active_job_ids.map(id=>id.slice(0,8)+'…').join(', ')}</div>` : ''}
-    </div>`;
-  });
-  html += `<div style="font-size:.72rem;color:var(--muted);margin-top:4px">Total active: ${data.total_active_jobs} • Overhead: ${data.overhead_pct}% reserved</div>`;
-  panel.innerHTML = html;
+function loadGPU() {
+  fetch('/gpu/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var panel = document.getElementById('gpu-panel');
+      if (!d.devices || !d.devices.length) {
+        panel.innerHTML = '<div style="font-size:.76rem;color:var(--muted)">No GPU found</div>';
+        return;
+      }
+      var html = '';
+      d.devices.forEach(function(dv) {
+        var tot = dv.total_gb || 1;
+        var ovhP = (dv.overhead_gb / tot * 100).toFixed(0);
+        var actP = (dv.claimed_gb / tot * 100).toFixed(0);
+        var freeP = Math.max(0, 100 - parseFloat(ovhP) - parseFloat(actP)).toFixed(0);
+        html += '<div style="margin-bottom:10px">'
+          + '<div style="display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:4px">'
+          + '<span style="font-weight:600">GPU ' + dv.gpu_id + ' — ' + esc(dv.name) + '</span>'
+          + '<span style="color:var(--muted)">' + (dv.used_pct||0).toFixed(1) + '% used</span></div>'
+          + '<div class="gpu-bar">'
+          + '<div class="gpu-seg gs-ovh" style="width:' + ovhP + '%" title="Overhead"></div>'
+          + '<div class="gpu-seg gs-act" style="width:' + actP + '%" title="Active"></div>'
+          + '<div class="gpu-seg gs-free" style="width:' + freeP + '%" title="Free"></div>'
+          + '</div>'
+          + '<div style="display:flex;gap:6px;flex-wrap:wrap;font-size:.68rem;color:var(--muted);margin-bottom:4px">'
+          + '<span>🔒 Overhead ' + dv.overhead_gb.toFixed(1) + 'GB</span>'
+          + '<span>⚡ Active ' + dv.claimed_gb.toFixed(1) + 'GB</span>'
+          + '<span>✅ Free ' + dv.soft_available_gb.toFixed(1) + 'GB</span>'
+          + '</div>'
+          + '<div class="gpu-stats">'
+          + '<div class="gpu-stat"><div class="gs-l">Total VRAM</div><div class="gs-v">' + dv.total_gb.toFixed(1) + ' GB</div></div>'
+          + '<div class="gpu-stat"><div class="gs-l">Active Jobs</div><div class="gs-v">' + dv.active_jobs + '</div></div>'
+          + '<div class="gpu-stat"><div class="gs-l">Actual Free</div><div class="gs-v">' + dv.actual_free_gb.toFixed(1) + ' GB</div></div>'
+          + '<div class="gpu-stat"><div class="gs-l">Usable (80%)</div><div class="gs-v">' + dv.usable_gb.toFixed(1) + ' GB</div></div>'
+          + '</div>'
+          + (dv.active_job_ids.length ? '<div style="font-size:.68rem;color:var(--muted);margin-top:4px">Running: ' + dv.active_job_ids.map(function(id){return id.slice(0,8)+'…';}).join(', ') + '</div>' : '')
+          + '</div>';
+      });
+      html += '<div style="font-size:.68rem;color:var(--muted)">Active: ' + d.total_active_jobs + ' · Overhead: ' + d.overhead_pct + '% reserved</div>';
+      panel.innerHTML = html;
+    })
+    .catch(function() {});
 }
 
 // ── Health sidebar ────────────────────────────────────────────────────────────
-async function loadHealth() {
-  try {
-    const r = await fetch('/health');
-    if (!r.ok) return;
-    const data = await r.json();
-    renderHealthPanel(data);
-    // Update top metrics
-    const statusEl = document.getElementById('sysStatus');
-    statusEl.textContent = data.status;
-    statusEl.className = 'metric-val ' + (data.status === 'healthy' ? 'green' : 'yellow');
-    document.getElementById('sysActive').textContent = data.active_jobs;
-    document.getElementById('sysCuda').textContent = data.cuda_available ? 'Available' : 'CPU only';
-    document.getElementById('sysCuda').className = 'metric-val ' + (data.cuda_available ? 'green' : 'yellow');
-    document.getElementById('sysCache').textContent = data.cache_enabled ? 'On' : 'Off';
-    document.getElementById('sysCache').className = 'metric-val ' + (data.cache_enabled ? 'green' : 'yellow');
-  } catch(e) {}
-}
+function loadHealth() {
+  fetch('/health')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var st = document.getElementById('m-status');
+      st.textContent = d.status;
+      st.className = 'met-v ' + (d.status === 'healthy' ? 'green' : 'yellow');
+      document.getElementById('m-active').textContent = d.active_jobs;
+      var cu = document.getElementById('m-cuda');
+      cu.textContent = d.cuda_available ? 'Available' : 'CPU only';
+      cu.className = 'met-v ' + (d.cuda_available ? 'green' : 'yellow');
+      var gf = document.getElementById('m-gpufree');
+      var mem = d.memory || {};
+      gf.textContent = mem.gpu_free_gb != null ? mem.gpu_free_gb.toFixed(1) + ' GB' : '—';
+      var ca = document.getElementById('m-cache');
+      ca.textContent = d.cache_enabled ? 'On' : 'Off';
+      ca.className = 'met-v ' + (d.cache_enabled ? 'green' : 'yellow');
 
-function renderHealthPanel(data) {
-  const panel = document.getElementById('healthPanel');
-  const mem = data.memory || {};
-  panel.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.78rem">
-      <div><span class="text-muted">GPU:</span> ${mem.gpu_pct?.toFixed(0)||0}%</div>
-      <div><span class="text-muted">RAM:</span> ${mem.ram_pct?.toFixed(0)||0}%</div>
-      <div><span class="text-muted">Concurrency:</span> ${data.max_concurrent_jobs}</div>
-      <div><span class="text-muted">Jobs:</span> ${data.active_jobs}</div>
-      <div><span class="text-muted">FFmpeg:</span> ${data.ffmpeg_available?'✓':'✗'}</div>
-      <div><span class="text-muted">GPUs:</span> [${(data.gpu_pool||[]).join(',')||'0'}]</div>
-    </div>`;
+      var sys = document.getElementById('sys-panel');
+      sys.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:.76rem">'
+        + '<div><span style="color:var(--muted)">GPU:</span> ' + (mem.gpu_pct||0).toFixed(0) + '%</div>'
+        + '<div><span style="color:var(--muted)">RAM:</span> ' + (mem.ram_pct||0).toFixed(0) + '%</div>'
+        + '<div><span style="color:var(--muted)">Concurrency:</span> ' + d.max_concurrent_jobs + '</div>'
+        + '<div><span style="color:var(--muted)">FFmpeg:</span> ' + (d.ffmpeg_available?'✓':'✗') + '</div>'
+        + '</div>';
+    })
+    .catch(function() {});
 }
 
 // ── Recent jobs sidebar ───────────────────────────────────────────────────────
-async function loadRecentJobs() {
-  try {
-    const r = await fetch('/jobs?per_page=5&sort_by=created_at&order=desc');
-    if (!r.ok) return;
-    const data = await r.json();
-    const panel = document.getElementById('recentPanel');
-    if (!data.jobs.length) { panel.innerHTML = '<div class="text-muted text-sm">No recent jobs</div>'; return; }
-    panel.innerHTML = data.jobs.map(j => {
-      const badgeClass = `badge-${j.status}`;
-      const elapsed = j.elapsed_s != null ? `<span style="margin-left:auto;font-size:.68rem;color:var(--muted)">${j.elapsed_s.toFixed(1)}s</span>` : '';
-      const video = j.original_video || j.metadata?.original_video || j.job_id.slice(0,12) + '…';
-      const dl = j.download_url && j.status === 'completed'
-        ? `<a href="${j.download_url}" class="btn btn-sm btn-success" style="padding:1px 6px;font-size:.68rem" download>⬇</a>` : '';
-      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.75rem">
-        <span class="badge ${badgeClass}" style="flex-shrink:0">${j.status}</span>
-        <span class="truncate" title="${video}" style="max-width:100px">${video}</span>
-        ${elapsed}${dl}
-      </div>`;
-    }).join('');
-  } catch(e) {}
+function loadRecent() {
+  fetch('/jobs?per_page=5&sort_by=created_at&order=desc')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var panel = document.getElementById('recent-panel');
+      if (!d.jobs || !d.jobs.length) {
+        panel.innerHTML = '<div style="font-size:.76rem;color:var(--muted)">No jobs yet</div>';
+        return;
+      }
+      panel.innerHTML = d.jobs.map(function(j) {
+        var video = j.original_video || (j.metadata && j.metadata.original_video) || j.job_id.slice(0,12) + '…';
+        var dl = (j.download_url && j.status === 'completed')
+          ? '<a href="' + j.download_url + '" class="btn btn-sm btn-ok" style="padding:1px 6px;font-size:.66rem" download>⬇</a>' : '';
+        var elapsed = j.elapsed_s != null ? '<span style="font-size:.66rem;color:var(--muted);margin-left:auto">' + j.elapsed_s.toFixed(1) + 's</span>' : '';
+        return '<div style="display:flex;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid var(--bord);font-size:.74rem">'
+          + '<span class="badge b-' + esc(j.status) + '" style="flex-shrink:0">' + esc(j.status) + '</span>'
+          + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0" title="' + esc(video) + '">' + esc(video) + '</span>'
+          + elapsed + dl + '</div>';
+      }).join('');
+    })
+    .catch(function() {});
 }
 
-function refreshSidebar() {
-  loadGPUStatus();
+function refreshSide() {
+  loadGPU();
   loadHealth();
-  loadRecentJobs();
+  loadRecent();
 }
 
-// ── Toast notifications ───────────────────────────────────────────────────────
-function toast(msg, type = 'info') {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `<div class="toast-body">${msg}</div><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+// ── Models list ───────────────────────────────────────────────────────────────
+function loadModels() {
+  fetch('/models')
+    .then(function(r) { return r.json(); })
+    .then(function(models) {
+      ['sel-s-model','sel-b-model','sel-c-model'].forEach(function(id) {
+        var sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = models.map(function(m) {
+          return '<option value="' + esc(m.name) + '">' + esc(m.display_name || m.name) + '</option>';
+        }).join('');
+      });
+    })
+    .catch(function() {});
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function getError(data, fallback) {
+  if (!data) return fallback;
+  var d = data.detail;
+  if (!d) return fallback;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) return d.map(function(e) { return e.msg || JSON.stringify(e); }).join('; ');
+  return String(d);
+}
+
+function toast(msg, type) {
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.innerHTML = '<span style="flex:1">' + esc(String(msg)) + '</span>'
+    + '<button class="toast-x" onclick="this.parentElement.remove()">✕</button>';
   document.getElementById('toasts').prepend(el);
-  setTimeout(() => el.remove(), 5000);
+  setTimeout(function() { if (el.parentElement) el.remove(); }, 4500);
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
-(function init() {
-  loadHealth();
-  loadGPUStatus();
-  loadRecentJobs();
-  // Refresh GPU every 10s, health every 15s, recent jobs every 10s
-  setInterval(loadGPUStatus, 10000);
-  setInterval(loadHealth, 15000);
-  setInterval(loadRecentJobs, 10000);
-})();
+loadModels();
+loadHealth();
+loadGPU();
+loadRecent();
+setInterval(loadGPU, 10000);
+setInterval(loadHealth, 15000);
+setInterval(loadRecent, 10000);
 </script>
 </body>
 </html>

@@ -1,18 +1,14 @@
 # SwiftDub — model configuration
 # Paths relative to project root
-#
-# vendor_dir: downloaded inference code snapshot (gitignored, no .git remote)
-# weights/checkpoints: downloaded from HuggingFace only
+# Weights are downloaded to models/weights/ — inference code lives in src/
 
 latentsync:
   display_name: "LatentSync 1.5"
-  vendor_url: "https://github.com/bytedance/LatentSync.git"
-  vendor_dir: "models/vendor/latentsync"
   checkpoint: "models/weights/latentsync/latentsync_unet.pt"
   whisper_checkpoint: "models/weights/latentsync/whisper/tiny.pt"
   hf_repo: "ByteDance/LatentSync-1.5"
   unet_config: "configs/unet/stage2.yaml"
-  vram_gb: 8
+  vram_gb: 10
   paper: "https://arxiv.org/abs/2412.09262"
   inference_steps: 20
   guidance_scale: 1.5
@@ -20,14 +16,12 @@ latentsync:
 musetalk:
   display_name: "MuseTalk v1.5"
   disabled: true   # set false + MUSETALK_DISABLED=false in .env to enable
-  vendor_url: "https://github.com/TMElyralab/MuseTalk.git"
-  vendor_dir: "models/vendor/musetalk"
   unet_path: "models/weights/musetalk/musetalkV15/unet.pth"
   unet_config: "models/weights/musetalk/musetalkV15/musetalk.json"
   whisper_dir: "models/weights/musetalk/whisper"
   dwpose_checkpoint: "models/weights/musetalk/dwpose/dw-ll_ucoco_384.pth"
   face_parse_dir: "models/weights/musetalk/face-parse-bisent"
   hf_repo: "TMElyralab/MuseTalk"
-  vram_gb: 8
+  vram_gb: 7
   paper: "https://arxiv.org/abs/2410.10122"
   bbox_shift: 0

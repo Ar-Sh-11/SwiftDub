@@ -1,9 +1,8 @@
-version: "3.9"
-
-# SwiftDub — Production Stack (LatentSync 1.5)
-# GPU required: NVIDIA L40S (46 GB) or equivalent ≥ 16 GB VRAM
+# SwiftDub — Production Stack (LatentSync 1.5 only)
+# GPU: NVIDIA L4 (23 GB) or equivalent ≥ 16 GB VRAM
 #
 # Usage:
+#   docker compose -f deploy/docker-compose.yml build --no-cache
 #   docker compose -f deploy/docker-compose.yml up -d
 #   docker compose -f deploy/docker-compose.yml logs -f api
 
@@ -19,6 +18,7 @@ services:
       - mongo_data:/data/db
     environment:
       MONGO_INITDB_DATABASE: swiftdub
+      TZ: Asia/Kolkata
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -32,6 +32,8 @@ services:
     ports:
       - "6379:6379"
     command: redis-server --save 60 1 --maxmemory 512mb --maxmemory-policy allkeys-lru
+    environment:
+      TZ: Asia/Kolkata
     volumes:
       - redis_data:/data
     healthcheck:
@@ -55,22 +57,22 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER: redis://redis:6379/1
       CELERY_BACKEND: redis://redis:6379/2
+      GPU_IDS: "0"
+      MUSETALK_DISABLED: "true"
+      INSIGHTFACE_HOME: /app/models/weights/latentsync/insightface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+      TZ: Asia/Kolkata
     volumes:
       - ../data:/app/data
-      - ../models:/app/models
+      - ../models/weights:/app/models/weights
       - ../logs:/app/logs
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    runtime: nvidia
 
   worker:
     build:
@@ -90,20 +92,21 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER: redis://redis:6379/1
       CELERY_BACKEND: redis://redis:6379/2
+      GPU_IDS: "0"
+      MUSETALK_DISABLED: "true"
+      INSIGHTFACE_HOME: /app/models/weights/latentsync/insightface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+      TZ: Asia/Kolkata
     volumes:
       - ../data:/app/data
-      - ../models:/app/models
+      - ../models/weights:/app/models/weights
       - ../logs:/app/logs
     depends_on:
       - redis
       - mongodb
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - api
+    runtime: nvidia
 
   flower:
     image: mher/flower:2.0
@@ -113,6 +116,7 @@ services:
       - "5556:5555"
     environment:
       CELERY_BROKER_URL: redis://redis:6379/1
+      TZ: Asia/Kolkata
     depends_on:
       - redis
 
@@ -120,8 +124,6 @@ services:
     image: prom/prometheus:v2.49.0
     container_name: swiftdub-prometheus
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "9092:9090"
     volumes:
@@ -130,6 +132,10 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=30d"
+    environment:
+      TZ: Asia/Kolkata
+    depends_on:
+      - api
 
   grafana:
     image: grafana/grafana:10.2.3
@@ -141,8 +147,10 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: swiftdub
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      TZ: Asia/Kolkata
+      GF_DEFAULT_INSTANCE_TIMEZONE: Asia/Kolkata
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro

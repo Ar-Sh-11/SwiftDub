@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""Download vendor inference snapshots and model weights for SwiftDub.
+"""Download LatentSync model weights for SwiftDub (no vendor repo required).
 
 Usage:
-  python scripts/download/models.py --model all
   python scripts/download/models.py --model latentsync
-  python scripts/download/models.py --model musetalk
+  python scripts/download/models.py --model latentsync --latentsync-version 1.5
 
-Vendor code is stored under models/vendor/ as a plain directory snapshot (no .git).
-Only SwiftDub is a git repo — vendor trees are gitignored runtime assets.
+Weights are stored under models/weights/ only. Inference code lives in src/.
 """
 
 from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
+import urllib.request
+import zipfile
 from pathlib import Path
 
 import yaml
@@ -30,32 +29,6 @@ def info(msg: str) -> None:
     print(f"\033[0;36m==> {msg}\033[0m")
 
 
-def vendor_snapshot(url: str, dest: Path) -> None:
-    """Download upstream inference code once; strip .git so it is not a separate repo."""
-    if dest.exists() and any(dest.iterdir()):
-        info(f"Vendor snapshot exists: {dest.name}")
-        _strip_git(dest)
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_name(dest.name + ".__tmp")
-    if tmp.exists():
-        shutil.rmtree(tmp)
-    info(f"Fetching vendor snapshot: {url}")
-    subprocess.run(["git", "clone", "--depth", "1", url, str(tmp)], check=True)
-    _strip_git(tmp)
-    if dest.exists():
-        shutil.rmtree(dest)
-    tmp.rename(dest)
-    info(f"Vendor ready (no git remote): {dest}")
-
-
-def _strip_git(path: Path) -> None:
-    git_dir = path / ".git"
-    if git_dir.exists():
-        shutil.rmtree(git_dir)
-        info(f"Removed .git from {path.name} — not a separate repo")
-
-
 def hf_download(repo_id: str, filename: str, local_dir: Path) -> Path:
     from huggingface_hub import hf_hub_download
 
@@ -68,117 +41,59 @@ def load_configs() -> dict:
     return yaml.safe_load((ROOT / "configs" / "models.yaml").read_text())
 
 
+def install_insightface_models(dest: Path) -> None:
+    """Download buffalo_l face detection models for InsightFace."""
+    target = dest / "models" / "buffalo_l"
+    if target.exists() and any(target.iterdir()):
+        info("InsightFace buffalo_l already present")
+        return
+
+    zip_path = dest / "buffalo_l.zip"
+    url = "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip"
+    info("Downloading InsightFace buffalo_l (~280 MB)")
+    dest.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(url, zip_path)
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(dest / "models")
+    zip_path.unlink(missing_ok=True)
+    info(f"InsightFace models ready: {target}")
+
+
 def install_latentsync(version: str = "1.5") -> None:
     cfg = load_configs()["latentsync"]
-    vendor_dir = ROOT / cfg["vendor_dir"]
     ckpt = ROOT / cfg["checkpoint"]
     whisper = ROOT / cfg["whisper_checkpoint"]
+    insightface_dir = settings.insightface_root
 
-    vendor_snapshot(cfg["vendor_url"], vendor_dir)
     hf_repo = f"ByteDance/LatentSync-{version}"
     whisper_name = "tiny.pt" if version == "1.5" else "small.pt"
 
     if not ckpt.exists():
-        info(f"Downloading LatentSync {version} checkpoint (~1.5 GB)")
+        info(f"Downloading LatentSync {version} checkpoint (~5 GB)")
         hf_download(hf_repo, "latentsync_unet.pt", ckpt.parent)
+    else:
+        info(f"LatentSync checkpoint exists: {ckpt.name}")
+
     if not whisper.exists():
         info(f"Downloading Whisper encoder ({whisper_name})")
         hf_download(hf_repo, f"whisper/{whisper_name}", whisper.parent)
+    else:
+        info(f"Whisper checkpoint exists: {whisper.name}")
 
-    _apply_patches()
+    install_insightface_models(insightface_dir)
     print("  LatentSync ✓")
 
 
-def install_musetalk() -> None:
-    cfg = load_configs()["musetalk"]
-    vendor_dir = ROOT / cfg["vendor_dir"]
-    unet = ROOT / cfg["unet_path"]
-    unet_cfg = ROOT / cfg["unet_config"]
-    whisper_dir = ROOT / cfg["whisper_dir"]
-    dwpose = ROOT / cfg["dwpose_checkpoint"]
-    face_parse = ROOT / cfg["face_parse_dir"]
-
-    vendor_snapshot(cfg["vendor_url"], vendor_dir)
-
-    if not unet.exists():
-        info("Downloading MuseTalk v1.5 UNet weights from HuggingFace")
-        hf_download(cfg["hf_repo"], "musetalkV15/unet.pth", unet.parent)
-    if not unet_cfg.exists():
-        hf_download(cfg["hf_repo"], "musetalkV15/musetalk.json", unet_cfg.parent)
-
-    if not (whisper_dir / "config.json").exists():
-        info("Downloading MuseTalk Whisper assets")
-        for name in ("config.json", "preprocessor_config.json", "model.safetensors"):
-            hf_download("openai/whisper-tiny", name, whisper_dir)
-
-    if not dwpose.exists():
-        info("Downloading DWPose weights")
-        hf_download("yzd-v/DWPose", "dw-ll_ucoco_384.pth", dwpose.parent)
-
-    if not (face_parse / "79999_iter.pth").exists():
-        info("Downloading face-parse-bisent weights")
-        hf_download("ManyOtherFunctions/face-parse-bisent", "79999_iter.pth", face_parse)
-        import urllib.request
-
-        face_parse.mkdir(parents=True, exist_ok=True)
-        urllib.request.urlretrieve(
-            "https://download.pytorch.org/models/resnet18-5c106cde.pth",
-            face_parse / "resnet18-5c106cde.pth",
-        )
-
-    _wire_musetalk_vendor(vendor_dir)
-    _apply_patches()
-    print("  MuseTalk ✓")
-
-
-def _apply_patches() -> None:
-    from scripts.vendor.patches import apply_all
-
-    apply_all()
-
-
-def _symlink_vendor_asset(link_path: Path, target: Path) -> None:
-    target = target.resolve()
-    if not target.exists():
-        return
-    link_path.parent.mkdir(parents=True, exist_ok=True)
-    if link_path.is_symlink() or link_path.exists():
-        if link_path.is_symlink() or link_path.is_file():
-            link_path.unlink()
-        else:
-            shutil.rmtree(link_path)
-    link_path.symlink_to(target, target_is_directory=target.is_dir())
-
-
-def _wire_musetalk_vendor(vendor_dir: Path) -> None:
-    weights = ROOT / "models" / "weights" / "musetalk"
-    for rel, name in (
-        ("models/whisper", "whisper"),
-        ("models/dwpose", "dwpose"),
-        ("models/face-parse-bisent", "face-parse-bisent"),
-    ):
-        _symlink_vendor_asset(vendor_dir / rel, weights / name)
-
-
-INSTALLERS = {
-    "latentsync": install_latentsync,
-    "musetalk": install_musetalk,
-}
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Download SwiftDub vendor snapshots and weights")
-    parser.add_argument("--model", choices=["all", "latentsync", "musetalk"], default="all")
+    parser = argparse.ArgumentParser(description="Download SwiftDub model weights (weights only)")
+    parser.add_argument("--model", choices=["latentsync", "insightface"], default="latentsync")
     parser.add_argument("--latentsync-version", choices=["1.5", "1.6"], default="1.5")
     args = parser.parse_args()
 
-    targets = list(INSTALLERS) if args.model == "all" else [args.model]
-    for name in targets:
-        info(f"Installing {name}")
-        if name == "latentsync":
-            install_latentsync(args.latentsync_version)
-        else:
-            INSTALLERS[name]()
+    if args.model == "insightface":
+        install_insightface_models(settings.insightface_root)
+    else:
+        install_latentsync(args.latentsync_version)
 
     print("\nDone. Start server: python -m src.main")
 
