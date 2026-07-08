@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-from src.api.routes import dub, health, jobs
+from src.api.routes import dub, gpu, health, jobs
 from src.config import settings
 from src.logging_.inference_log import setup_logging
 
@@ -24,29 +25,39 @@ async def lifespan(app: FastAPI):
     setup_logging()
     settings.ensure_dirs()
     logger.info("{} starting — host={}:{}", settings.app_name, settings.host, settings.port)
-    logger.info("LatentSync vendor: {}", settings.latentsync_vendor)
     logger.info("LatentSync ckpt: {}", settings.latentsync_ckpt)
+    logger.info("GPU pool: {}", settings.gpu_id_list())
     logger.info("Max concurrent jobs: {}", settings.max_concurrent_jobs)
     if settings.is_musetalk_disabled():
         logger.info("MuseTalk DISABLED — LatentSync only")
 
-    # Warm up MongoDB connection (non-blocking)
+    # Warm up MongoDB and ensure indexes
     if not settings.disable_db:
         try:
             from src.db.client import get_db
             await get_db().command("ping")
             logger.info("MongoDB connected")
+            from src.db.repos import ensure_indexes
+            await ensure_indexes()
         except Exception as exc:
             logger.warning("MongoDB unavailable — using in-memory job store ({})", exc)
 
+    # Clean up stale temp/upload dirs from previous runs
+    try:
+        from src.utils.cleanup import cleanup_stale_temp, cleanup_stale_uploads
+        await asyncio.get_event_loop().run_in_executor(None, cleanup_stale_temp)
+        await asyncio.get_event_loop().run_in_executor(None, cleanup_stale_uploads)
+    except Exception as exc:
+        logger.debug("Startup cleanup error: {}", exc)
+
     yield
 
-    if not settings.disable_db:
-        try:
-            from src.cache.client import close as close_redis
-            await close_redis()
-        except Exception:
-            pass
+    # Graceful shutdown
+    try:
+        from src.cache.client import close as close_redis
+        await close_redis()
+    except Exception:
+        pass
 
     logger.info("{} stopped", settings.app_name)
 
@@ -58,7 +69,7 @@ def create_app() -> FastAPI:
             "SwiftDub — production video dubbing with LatentSync 1.5 and MuseTalk v1.5. "
             "Upload a video + audio and receive a lip-synced MP4."
         ),
-        version="2.0.0",
+        version="2.1.0",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -74,6 +85,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(dub.router)
     app.include_router(jobs.router)
+    app.include_router(gpu.router)
 
     # Serve output videos at /outputs/<filename>
     settings.outputs_dir.mkdir(parents=True, exist_ok=True)

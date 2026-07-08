@@ -28,6 +28,7 @@ class HealthResponse(BaseModel):
     active_jobs: int
     memory: dict[str, float] = Field(default_factory=dict)
     cache_enabled: bool = True
+    gpu_pool: list[int] = Field(default_factory=list)
 
 
 class ServiceInfo(BaseModel):
@@ -46,6 +47,7 @@ class ServicesResponse(BaseModel):
 
 class DubResponse(BaseModel):
     job_id: str
+    batch_id: str | None = None
     status: str
     model: str
     output_video: str | None = None
@@ -63,6 +65,7 @@ class BatchDubResponse(BaseModel):
 
 class JobResponse(BaseModel):
     job_id: str
+    batch_id: str | None = None
     status: str
     model: str = ModelName.LATENTSYNC.value
     created_at: datetime | None = None
@@ -70,4 +73,38 @@ class JobResponse(BaseModel):
     output_video: str | None = None
     download_url: str | None = None
     error: str | None = None
+    elapsed_s: float | None = None
+    dub_correct: bool = False
+    original_video: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PaginatedJobsResponse(BaseModel):
+    jobs: list[JobResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
+# ── GPU metrics ───────────────────────────────────────────────────────────────
+
+class GPUDeviceStatus(BaseModel):
+    gpu_id: int
+    name: str
+    total_gb: float
+    overhead_gb: float
+    usable_gb: float
+    claimed_gb: float
+    soft_available_gb: float
+    actual_free_gb: float
+    hard_available_gb: float
+    active_jobs: int
+    active_job_ids: list[str] = Field(default_factory=list)
+    used_pct: float
+
+
+class GPUStatusResponse(BaseModel):
+    devices: list[GPUDeviceStatus]
+    total_active_jobs: int
+    overhead_pct: int

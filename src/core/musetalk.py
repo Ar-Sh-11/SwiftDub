@@ -1,22 +1,25 @@
-"""MuseTalk v1.5 inference — subprocess runner."""
+"""MuseTalk v1.5 inference — subprocess runner.
 
+Calls our first-party src/models/musetalk/infer.py entry point.
+No dependency on models/vendor/ — only models/weights/ required.
+"""
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
-import yaml
 from loguru import logger
 
 from src.config import settings
+from src.utils.gpu_alloc import GPUAllocator
+
+_gpu_alloc = GPUAllocator()
 
 
-def _subprocess_env() -> dict[str, str]:
+def _base_env() -> dict[str, str]:
     env = os.environ.copy()
     try:
         import imageio_ffmpeg
@@ -24,16 +27,15 @@ def _subprocess_env() -> dict[str, str]:
         env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
     except Exception:
         pass
-    repo = str(settings.musetalk_vendor)
+    root = str(settings.root_dir)
     existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = repo + (os.pathsep + existing if existing else "")
+    env["PYTHONPATH"] = root + (os.pathsep + existing if existing else "")
     return env
 
 
 def is_ready() -> bool:
     return (
-        settings.musetalk_vendor.exists()
-        and settings.musetalk_unet.exists()
+        settings.musetalk_unet.exists()
         and settings.musetalk_unet_config.exists()
         and settings.musetalk_whisper_dir.exists()
         and settings.musetalk_dwpose.exists()
@@ -47,11 +49,12 @@ def run_musetalk(
     *,
     bbox_shift: int | None = None,
     temp_dir: Path | None = None,
+    gpu_id: int | None = None,
 ) -> float:
+    """Run MuseTalk inference via our first-party infer.py. Returns elapsed seconds."""
     if not is_ready():
         raise RuntimeError(
-            f"MuseTalk not ready. Vendor: {settings.musetalk_vendor} | "
-            f"UNet: {settings.musetalk_unet}"
+            f"MuseTalk weights not found. UNet: {settings.musetalk_unet}"
         )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,64 +62,44 @@ def run_musetalk(
     result_dir.mkdir(parents=True, exist_ok=True)
     shift = bbox_shift if bbox_shift is not None else settings.musetalk_bbox_shift
 
-    task_cfg = {
-        "task_0": {
-            "video_path": str(video_path.resolve()),
-            "audio_path": str(audio_path.resolve()),
-        }
-    }
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
-        yaml.safe_dump(task_cfg, f)
-        cfg_path = f.name
-
-    cmd = [
-        sys.executable, "-m", "scripts.inference",
-        "--inference_config", cfg_path,
-        "--result_dir", str(result_dir),
-        "--unet_model_path", str(settings.musetalk_unet),
-        "--unet_config", str(settings.musetalk_unet_config),
-        "--whisper_dir", str(settings.musetalk_whisper_dir),
-        "--version", "v15",
-        "--bbox_shift", str(shift),
-        "--gpu_id", "0",
-    ]
-
-    logger.debug("MuseTalk cmd: {}", " ".join(cmd))
-    t0 = time.time()
+    selected_gpu = gpu_id if gpu_id is not None else _gpu_alloc.acquire()
     try:
+        cmd = [
+            sys.executable, "-m", "src.models.musetalk.infer",
+            "--video_path", str(video_path.resolve()),
+            "--audio_path", str(audio_path.resolve()),
+            "--output_path", str(output_path),
+            "--unet_model_path", str(settings.musetalk_unet),
+            "--unet_config", str(settings.musetalk_unet_config),
+            "--whisper_dir", str(settings.musetalk_whisper_dir),
+            "--result_dir", str(result_dir),
+            "--bbox_shift", str(shift),
+            "--gpu_id", str(selected_gpu),
+        ]
+
+        logger.debug("MuseTalk cmd: {}", " ".join(cmd))
+        t0 = time.time()
         result = subprocess.run(
             cmd,
-            cwd=str(settings.musetalk_vendor),
-            env=_subprocess_env(),
+            cwd=str(settings.root_dir),
+            env=_base_env(),
             capture_output=True,
             text=True,
         )
+        elapsed = time.time() - t0
     finally:
-        Path(cfg_path).unlink(missing_ok=True)
-
-    elapsed = time.time() - t0
+        _gpu_alloc.release(selected_gpu)
 
     if result.returncode != 0:
-        stderr_tail = result.stderr[-2500:] if result.stderr else ""
-        stdout_tail = result.stdout[-1000:] if result.stdout else ""
+        stderr = result.stderr[-2500:] if result.stderr else ""
+        stdout = result.stdout[-1000:] if result.stdout else ""
         raise RuntimeError(
             f"MuseTalk failed (exit {result.returncode}):\n"
-            f"STDERR: {stderr_tail}\nSTDOUT: {stdout_tail}"
+            f"STDERR: {stderr}\nSTDOUT: {stdout}"
         )
 
-    produced = sorted(result_dir.rglob("*.mp4"), key=lambda p: p.stat().st_mtime)
-    # Exclude concat preview files
-    produced = [p for p in produced if "_concat" not in p.name]
-    if not produced:
-        stderr_tail = result.stderr[-1500:] if result.stderr else ""
-        stdout_tail = result.stdout[-1500:] if result.stdout else ""
-        raise RuntimeError(
-            f"MuseTalk produced no output in {result_dir}\n"
-            f"STDERR: {stderr_tail}\nSTDOUT: {stdout_tail}"
-        )
-
-    shutil.copy2(produced[-1], output_path)
-    shutil.rmtree(result_dir, ignore_errors=True)
+    if not output_path.exists():
+        raise RuntimeError(f"MuseTalk produced no output at {output_path}")
 
     logger.info("MuseTalk done in {:.1f}s → {}", elapsed, output_path)
     return elapsed

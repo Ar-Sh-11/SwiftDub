@@ -3,30 +3,20 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
-# legacy/
 .env
-swiftdub/
 
 # Runtime data
 data/uploads/
-# data/outputs/
+data/outputs/
 data/temp/
 logs/
 
-# Model weights + vendor snapshots (download via scripts/download/models.py)
-models/weights/
-models/vendor/
-models/repos/
+# Model weights (download via scripts/download/models.py)
+/models/
 
 # Keep directory structure
-!models/weights/.gitkeep
-!models/vendor/.gitkeep
-!models/repos/.gitkeep
+!/models/weights/.gitkeep
 !data/samples/.gitkeep
-
-# Legacy (optional — uncomment to exclude from git on next push)
-# legacy/
-
 # IDE / OS
 .idea/
 .vscode/

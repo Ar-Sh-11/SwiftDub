@@ -1,9 +1,8 @@
-"""LatentSync 1.5 inference — runs the model script in a subprocess.
+"""LatentSync 1.5 inference — subprocess runner.
 
-The subprocess approach keeps GPU memory fully released after each job
-and avoids import-time side effects in the parent process.
+Calls our first-party src/models/latentsync/infer.py entry point.
+No dependency on models/vendor/ — only models/weights/ required.
 """
-
 from __future__ import annotations
 
 import os
@@ -15,10 +14,13 @@ from pathlib import Path
 from loguru import logger
 
 from src.config import settings
+from src.utils.gpu_alloc import GPUAllocator
+
+_gpu_alloc = GPUAllocator()
 
 
-def _ffmpeg_env() -> dict[str, str]:
-    """Env dict that ensures ffmpeg is on PATH and latentsync repo is importable."""
+def _base_env() -> dict[str, str]:
+    """Build subprocess environment with ffmpeg and SwiftDub root on path."""
     env = os.environ.copy()
     try:
         import imageio_ffmpeg
@@ -26,19 +28,18 @@ def _ffmpeg_env() -> dict[str, str]:
         env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
     except Exception:
         pass
-    # Vendor inference snapshot (gitignored; not a separate git repo)
-    repo = str(settings.latentsync_vendor)
+    root = str(settings.root_dir)
     existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = repo + (os.pathsep + existing if existing else "")
+    env["PYTHONPATH"] = root + (os.pathsep + existing if existing else "")
     return env
 
 
 def is_ready() -> bool:
-    """Return True when vendor snapshot and weights are present."""
+    """Return True when weights are present (vendor no longer required)."""
     return (
-        settings.latentsync_vendor.exists()
-        and settings.latentsync_ckpt.exists()
+        settings.latentsync_ckpt.exists()
         and settings.latentsync_whisper.exists()
+        and settings.latentsync_unet_config_path.exists()
     )
 
 
@@ -52,81 +53,64 @@ def run_latentsync(
     seed: int | None = None,
     enable_deepcache: bool | None = None,
     temp_dir: Path | None = None,
+    gpu_id: int | None = None,
 ) -> float:
-    """Run LatentSync inference and return elapsed seconds.
-
-    Args:
-        video_path: Input video file.
-        audio_path: Input audio file (WAV/MP3).
-        output_path: Where to write the dubbed MP4.
-        inference_steps: DDIM steps (default from settings).
-        guidance_scale: Classifier-free guidance (default from settings).
-        seed: Random seed (-1 = random).
-        enable_deepcache: Speed-up via DeepCache.
-        temp_dir: Working directory for intermediate frames.
-
-    Returns:
-        Elapsed time in seconds.
-
-    Raises:
-        RuntimeError: If model is not ready or subprocess fails.
-    """
+    """Run LatentSync inference via our first-party infer.py. Returns elapsed seconds."""
     if not is_ready():
         raise RuntimeError(
-            f"LatentSync not ready. "
-            f"Ckpt: {settings.latentsync_ckpt} | Vendor: {settings.latentsync_vendor}"
+            f"LatentSync weights not found. "
+            f"Ckpt: {settings.latentsync_ckpt} | "
+            f"Whisper: {settings.latentsync_whisper}"
         )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     steps = inference_steps if inference_steps is not None else settings.latentsync_inference_steps
     scale = guidance_scale if guidance_scale is not None else settings.latentsync_guidance_scale
-    rng   = seed if seed is not None else settings.latentsync_seed
+    rng = seed if seed is not None else settings.latentsync_seed
     dcache = enable_deepcache if enable_deepcache is not None else settings.latentsync_enable_deepcache
 
     td = temp_dir or (settings.temp_dir / f"ls_{output_path.stem}")
     td.mkdir(parents=True, exist_ok=True)
 
-    unet_cfg = settings.latentsync_vendor / settings.latentsync_unet_config
+    selected_gpu = gpu_id if gpu_id is not None else _gpu_alloc.acquire()
+    try:
+        cmd = [
+            sys.executable, "-m", "src.models.latentsync.infer",
+            "--unet_config_path", str(settings.latentsync_unet_config_path),
+            "--inference_ckpt_path", str(settings.latentsync_ckpt),
+            "--whisper_model_path", str(settings.latentsync_whisper),
+            "--video_path", str(video_path.resolve()),
+            "--audio_path", str(audio_path.resolve()),
+            "--video_out_path", str(output_path),
+            "--inference_steps", str(steps),
+            "--guidance_scale", str(scale),
+            "--seed", str(rng),
+            "--temp_dir", str(td),
+            "--gpu_id", str(selected_gpu),
+        ]
+        if dcache:
+            cmd.append("--enable_deepcache")
 
-    cmd = [
-        sys.executable,
-        "scripts/inference.py",
-        "--unet_config_path", str(unet_cfg),
-        "--inference_ckpt_path", str(settings.latentsync_ckpt),
-        "--video_path", str(video_path.resolve()),
-        "--audio_path", str(audio_path.resolve()),
-        "--video_out_path", str(output_path),
-        "--inference_steps", str(steps),
-        "--guidance_scale", str(scale),
-        "--seed", str(rng),
-        "--temp_dir", str(td),
-    ]
-    if dcache:
-        cmd.append("--enable_deepcache")
-
-    logger.debug("LatentSync cmd: {}", " ".join(cmd))
-    t0 = time.time()
-
-    env = _ffmpeg_env()
-    env["SWIFTDUB_LATENTSYNC_WHISPER"] = str(settings.latentsync_whisper.resolve())
-
-    result = subprocess.run(
-        cmd,
-        cwd=str(settings.latentsync_vendor),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-    elapsed = time.time() - t0
+        logger.debug("LatentSync cmd: {}", " ".join(cmd))
+        t0 = time.time()
+        result = subprocess.run(
+            cmd,
+            cwd=str(settings.root_dir),
+            env=_base_env(),
+            capture_output=True,
+            text=True,
+        )
+        elapsed = time.time() - t0
+    finally:
+        _gpu_alloc.release(selected_gpu)
 
     if result.returncode != 0:
-        stderr_tail = result.stderr[-2000:] if result.stderr else ""
-        stdout_tail = result.stdout[-1000:] if result.stdout else ""
+        stderr = result.stderr[-2000:] if result.stderr else ""
+        stdout = result.stdout[-1000:] if result.stdout else ""
         raise RuntimeError(
             f"LatentSync failed (exit {result.returncode}):\n"
-            f"STDERR: {stderr_tail}\nSTDOUT: {stdout_tail}"
+            f"STDERR: {stderr}\nSTDOUT: {stdout}"
         )
 
     if not output_path.exists():

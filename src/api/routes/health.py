@@ -35,8 +35,9 @@ def health() -> HealthResponse:
         musetalk_disabled=settings.is_musetalk_disabled(),
         max_concurrent_jobs=settings.max_concurrent_jobs,
         active_jobs=int(active_jobs._value.get()),
-        memory=mem,
+        memory={**mem, "gpu_free_gb": 0.0},
         cache_enabled=should_use_cache(),
+        gpu_pool=settings.gpu_id_list(),
     )
 
 

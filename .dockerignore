@@ -1,6 +1,3 @@
-# Legacy code — not used in production deployment
-legacy/
-
 # Dev artifacts
 .git/
 .gitignore
@@ -22,7 +19,6 @@ output/
 
 # Model weights downloaded at runtime
 models/weights/
-models/repos/
 
 # Local env
 #.env
